@@ -9,6 +9,8 @@ export interface SearchResult {
 	rerank?: number;
 	/** Search round (1–3) that found this result */
 	round?: number;
+	/** Page's og:image / twitter:image (https only) */
+	image?: string;
 }
 
 export interface Expansion {
@@ -28,6 +30,8 @@ export interface Round {
 export type SearchEvent =
 	| { type: 'results'; round: number; query: string; results: SearchResult[] }
 	| ({ type: 'expansion' } & Expansion)
+	/** Thumbnails for an already-sent round, keyed by result URL */
+	| { type: 'images'; images: Record<string, string> }
 	| { type: 'done'; id: number; ms: number }
 	| { type: 'error'; message: string };
 
@@ -42,3 +46,8 @@ export interface CachedSearch extends HistoryItem, Expansion {
 	results: SearchResult[];
 	rounds: Round[];
 }
+
+/** A saved results page or a single saved result */
+export type ArchiveItem =
+	| { id: number; kind: 'search'; query: string; count: number; createdAt: number }
+	| { id: number; kind: 'result'; query: string; result: SearchResult; createdAt: number };

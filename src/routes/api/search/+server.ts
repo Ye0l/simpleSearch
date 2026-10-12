@@ -3,6 +3,7 @@ import { saveSearch } from '#lib/server/db.ts';
 import { expand } from '#lib/server/expand.ts';
 import { search, seenDomains, urlKey } from '#lib/server/perplexity.ts';
 import { byScore, scoreResults } from '#lib/server/score.ts';
+import { thumbnails } from '#lib/server/thumbnail.ts';
 import { hostOf } from '#lib/filter.ts';
 import { parseQuery, semanticQuery } from '#lib/query.ts';
 import type { Round, SearchEvent, SearchResult } from '#lib/types.ts';
@@ -15,6 +16,7 @@ const ROUNDS = 3;
  * in parallel; rounds 2–3 run sequentially on the variants, excluding domains already
  * seen. Duplicate URLs are dropped here. Each round is scored (decision model + reranker)
  * before it is sent; scoring overlaps with the next round's search.
+ * Thumbnails are fetched alongside and follow their round as a separate event.
  */
 export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 	const q = url.searchParams.get('q')?.trim();
@@ -61,6 +63,7 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 			const queue = (event: () => Promise<SearchEvent>) => {
 				outbox = outbox.then(async () => send(await event()));
 			};
+			const pendingImages: Promise<void>[] = [];
 
 			const runRound = async (round: number, sent: string | string[], exclude: string[]) => {
 				const results = add(
@@ -70,10 +73,19 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 				const query = Array.isArray(sent) ? sent.join(' | ') : sent;
 				rounds.push({ query, count: results.length });
 				const scoring = scoreResults(fetch, semantic, results);
+				const images = thumbnails(results, signal);
 				queue(async () => {
 					await scoring;
 					return { type: 'results', round, query, results };
 				});
+				const queued = outbox;
+				pendingImages.push(
+					Promise.all([images, queued]).then(([found]) => {
+						if (Object.keys(found).length === 0) return;
+						for (const r of results) r.image = found[r.url];
+						send({ type: 'images', images: found });
+					})
+				);
 			};
 
 			try {
@@ -102,6 +114,7 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 				}
 
 				await outbox;
+				await Promise.all(pendingImages);
 				const id = saveSearch(locals.clientId, q, all.sort(byScore), { variants, related }, rounds);
 				send({ type: 'done', id, ms: Math.round(performance.now() - started) });
 			} catch (e) {

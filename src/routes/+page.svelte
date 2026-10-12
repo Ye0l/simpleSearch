@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type {
+		ArchiveItem,
 		CachedSearch,
 		HistoryItem,
 		Round,
@@ -12,6 +14,7 @@
 	import Panel from '#lib/components/Panel.svelte';
 	import AdvancedSearch from '#lib/components/AdvancedSearch.svelte';
 	import Filters from '#lib/components/Filters.svelte';
+	import Sidebar from '#lib/components/Sidebar.svelte';
 	import { countOperators, describeQuery, parseQuery, tokenizeQuery } from '#lib/query.ts';
 	import { applyFilter, countFilter, emptyFilter, type ResultFilter } from '#lib/filter.ts';
 
@@ -24,8 +27,11 @@
 		rounds: Round[];
 		related: string[];
 		ms?: number;
-		/** Set when showing a stored search from history */
+		/** Set when showing a stored search from history or the archive */
 		cachedAt?: number;
+		/** Archive entry holding this page, if it was saved or opened from the archive */
+		archiveId?: number;
+		fromArchive?: boolean;
 		done: boolean;
 		/** Error after some results already arrived */
 		partialError?: string;
@@ -33,7 +39,10 @@
 
 	const q = $derived(page.url.searchParams.get('q')?.trim() ?? '');
 	const historyId = $derived(Number(page.url.searchParams.get('h')) || null);
-	const key = $derived(historyId ? `h:${historyId}` : `q:${q}`);
+	const archiveParam = $derived(Number(page.url.searchParams.get('a')) || null);
+	const key = $derived(
+		archiveParam ? `a:${archiveParam}` : historyId ? `h:${historyId}` : `q:${q}`
+	);
 
 	let input = $derived(q);
 	let inputEl: HTMLInputElement;
@@ -55,6 +64,13 @@
 	let view = $state<View | null>(null);
 	let loading = $state(false);
 	let failure = $state<string | null>(null);
+
+	let menuOpen = $state(false);
+	let archive = $state<ArchiveItem[]>([]);
+	/** Saved result URL → archive id */
+	const savedResults = $derived(
+		new Map(archive.flatMap((a) => (a.kind === 'result' ? [[a.result.url, a.id] as const] : [])))
+	);
 
 	let history = $state<HistoryItem[]>([]);
 	let open = $state(false);
@@ -112,6 +128,9 @@
 					view.results = rank([...view.results, ...event.results]);
 					view.rounds.push({ query: event.query, count: event.results.length });
 					break;
+				case 'images':
+					for (const r of view?.results ?? []) r.image = event.images[r.url] ?? r.image;
+					break;
 				case 'expansion':
 					if (view) view.related = event.related;
 					break;
@@ -150,6 +169,7 @@
 		const k = key;
 		const query = q;
 		const hid = historyId;
+		const aid = archiveParam;
 		failure = null;
 		view = null;
 		filter = emptyFilter();
@@ -166,19 +186,24 @@
 
 		const ctrl = new AbortController();
 		loading = true;
-		const request = hid
-			? getJSON<CachedSearch>(`/api/history/${hid}`, { signal: ctrl.signal }).then((d) => {
-					view = {
-						id: d.id,
-						results: d.results,
-						rounds: d.rounds,
-						related: d.related,
-						cachedAt: d.createdAt,
-						done: true
-					};
-					memo.set(k, $state.snapshot(view));
-				})
-			: streamSearch(query, k, ctrl.signal);
+		const request =
+			hid || aid
+				? getJSON<CachedSearch>(aid ? `/api/archive/${aid}` : `/api/history/${hid}`, {
+						signal: ctrl.signal
+					}).then((d) => {
+						view = {
+							id: aid ? undefined : d.id,
+							results: d.results,
+							rounds: d.rounds,
+							related: d.related,
+							cachedAt: d.createdAt,
+							archiveId: aid ?? undefined,
+							fromArchive: !!aid,
+							done: true
+						};
+						memo.set(k, $state.snapshot(view));
+					})
+				: streamSearch(query, k, ctrl.signal);
 
 		request
 			.catch((e: Error) => {
@@ -200,7 +225,7 @@
 		if (!next) return;
 		inputEl.blur();
 		advancedOpen = false;
-		if (next !== q || historyId) goto(`/?q=${encodeURIComponent(next)}`);
+		if (next !== q || historyId || archiveParam) goto(`/?q=${encodeURIComponent(next)}`);
 	}
 
 	function submit(e: SubmitEvent) {
@@ -219,6 +244,49 @@
 		history = [];
 		for (const k of memo.keys()) if (k.startsWith('h:')) memo.delete(k);
 		await fetch('/api/history', { method: 'DELETE' });
+	}
+
+	onMount(loadArchive);
+
+	async function loadArchive() {
+		try {
+			archive = await getJSON<ArchiveItem[]>('/api/archive');
+		} catch {}
+	}
+
+	async function addToArchive(body: object) {
+		const { id } = await getJSON<{ id: number }>('/api/archive', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		loadArchive();
+		return id;
+	}
+
+	async function removeArchived(id: number) {
+		archive = archive.filter((a) => a.id !== id);
+		memo.delete(`a:${id}`);
+		// Cached views of this page shouldn't keep claiming they're saved.
+		for (const [k, v] of memo) if (v.archiveId === id) memo.set(k, { ...v, archiveId: undefined });
+		if (view?.archiveId === id) view.archiveId = undefined;
+		await fetch(`/api/archive/${id}`, { method: 'DELETE' });
+	}
+
+	async function togglePage() {
+		if (!view) return;
+		if (view.archiveId) return removeArchived(view.archiveId);
+		if (!view.id) return;
+		const current = view;
+		const k = key;
+		current.archiveId = await addToArchive({ searchId: current.id });
+		memo.set(k, $state.snapshot(current));
+	}
+
+	async function toggleResult(r: SearchResult) {
+		const id = savedResults.get(r.url);
+		if (id) return removeArchived(id);
+		await addToArchive({ query: q, result: r });
 	}
 
 	function pick(item: HistoryItem) {
@@ -312,10 +380,24 @@
 
 <div class="app" class:active={!!q}>
 	<header>
-		<a class="brand" href="/" aria-label="simpleSearch 홈">
-			<span class="mark" aria-hidden="true"></span>
-			<span class="word">simple<b>Search</b></span>
-		</a>
+		<div class="lead">
+			<button
+				class="menu"
+				aria-label="아카이브 열기"
+				title="아카이브"
+				aria-expanded={menuOpen}
+				onclick={() => {
+					menuOpen = true;
+					loadArchive();
+				}}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+			</button>
+			<a class="brand" href="/" aria-label="simpleSearch 홈">
+				<span class="mark" aria-hidden="true"></span>
+				<span class="word">simple<b>Search</b></span>
+			</a>
+		</div>
 
 		<form class="search" role="search" onsubmit={submit}>
 			<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -501,6 +583,19 @@
 					<span class="tools-meta">{visible.length} / {view.results.length}개</span>
 					<button class="tool link" onclick={() => (filter = emptyFilter())}>필터 해제</button>
 				{/if}
+				<button
+					class="tool save"
+					class:on={!!view?.archiveId}
+					aria-pressed={!!view?.archiveId}
+					disabled={!view?.archiveId && !view?.id}
+					title={view?.archiveId ? '아카이브에서 제거' : '결과 페이지를 아카이브에 저장'}
+					onclick={togglePage}
+				>
+					<svg viewBox="0 0 24 24" aria-hidden="true"
+						><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z" /></svg
+					>
+					{view?.archiveId ? '저장됨' : '저장'}
+				</button>
 			</div>
 
 			{@render advancedPanel()}
@@ -539,7 +634,10 @@
 							<circle cx="12" cy="12" r="8.5" />
 							<path d="M12 7.5V12l3 2" />
 						</svg>
-						<span><b>캐시된 결과</b> · {ago(view.cachedAt)} 검색 · {view.results.length}개</span>
+						<span
+							><b>{view.fromArchive ? '아카이브된 결과' : '캐시된 결과'}</b> · {ago(view.cachedAt)}
+							{view.fromArchive ? '저장' : '검색'} · {view.results.length}개</span
+						>
 						<button onclick={research}>
 							<svg viewBox="0 0 24 24" aria-hidden="true">
 								<path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4h-4" />
@@ -596,8 +694,8 @@
 					<ol class="results">
 						{#each visible as r (r.url)}
 							<li class="result" style:--i={stagger.get(r.url) ?? 0} animate:flip={{ duration: 320 }}>
-								<a href={r.url} target="_blank" rel="noopener noreferrer">
-									<div class="source">
+								<div class="source">
+									<a class="site" href={r.url} target="_blank" rel="noopener noreferrer" tabindex="-1">
 										<img
 											src="https://icons.duckduckgo.com/ip3/{host(r.url)}.ico"
 											alt=""
@@ -610,25 +708,62 @@
 										{#each crumbs(r.url) as c}
 											<span class="crumb">› {c}</span>
 										{/each}
-										{#if r.score !== undefined}
-											<span
-												class="score"
-												class:high={r.score >= 0.6}
-												title="검색어와의 관련도 (decision 모델 · 동점은 rerank)"
-												style:--s={Math.max(0, Math.min(1, r.score))}
-											>
-												{r.score.toFixed(2)}
-											</span>
+									</a>
+									{#if r.score !== undefined}
+										<span
+											class="score"
+											class:high={r.score >= 0.6}
+											title="검색어와의 관련도 (decision 모델 · 동점은 rerank)"
+											style:--s={Math.max(0, Math.min(1, r.score))}
+										>
+											{r.score.toFixed(2)}
+										</span>
+									{/if}
+									<button
+										class="bookmark"
+										class:on={savedResults.has(r.url)}
+										aria-pressed={savedResults.has(r.url)}
+										aria-label={savedResults.has(r.url) ? '저장 취소' : '이 결과 저장'}
+										title={savedResults.has(r.url) ? '저장 취소' : '이 결과 저장'}
+										onclick={() => toggleResult(r)}
+									>
+										<svg viewBox="0 0 24 24" aria-hidden="true"
+											><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z" /></svg
+										>
+									</button>
+								</div>
+								<div class="body">
+									<div class="text">
+										<a class="title" href={r.url} target="_blank" rel="noopener noreferrer">
+											<h2>{r.title}</h2>
+										</a>
+										{#if r.snippet || r.date}
+											<p class="snippet">
+												{#if formatDate(r.date)}<time>{formatDate(r.date)}</time>{/if}
+												{r.snippet}
+											</p>
 										{/if}
 									</div>
-									<h2>{r.title}</h2>
-								</a>
-								{#if r.snippet || r.date}
-									<p class="snippet">
-										{#if formatDate(r.date)}<time>{formatDate(r.date)}</time>{/if}
-										{r.snippet}
-									</p>
-								{/if}
+									{#if r.image}
+										<a
+											class="thumb"
+											href={r.url}
+											target="_blank"
+											rel="noopener noreferrer"
+											tabindex="-1"
+											aria-hidden="true"
+										>
+											<img
+												src={r.image}
+												alt=""
+												loading="lazy"
+												referrerpolicy="no-referrer"
+												onload={(e) => e.currentTarget.parentElement?.classList.add('loaded')}
+												onerror={(e) => e.currentTarget.parentElement?.setAttribute('hidden', '')}
+											/>
+										</a>
+									{/if}
+								</div>
 							</li>
 						{/each}
 					</ol>
@@ -664,9 +799,15 @@
 	{/if}
 </div>
 
+<Sidebar
+	bind:open={menuOpen}
+	items={archive}
+	onremove={(item) => removeArchived(item.id)}
+/>
+
 <style>
 	.app {
-		--rail: 168px;
+		--rail: 200px;
 		min-height: 100dvh;
 	}
 
@@ -692,6 +833,53 @@
 		backdrop-filter: saturate(1.4) blur(14px);
 		-webkit-backdrop-filter: saturate(1.4) blur(14px);
 		border-bottom: 1px solid var(--border);
+	}
+
+	/* ---------- archive menu ---------- */
+	.lead {
+		display: contents;
+	}
+	.active .lead {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+	.menu {
+		position: fixed;
+		top: 16px;
+		left: 16px;
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border: 0;
+		border-radius: 12px;
+		background: transparent;
+		color: var(--text-2);
+		cursor: pointer;
+		transition:
+			background-color 0.15s,
+			color 0.15s;
+	}
+	.active .menu {
+		position: static;
+		flex: none;
+		width: 36px;
+		height: 36px;
+		margin-left: -8px;
+	}
+	.menu:hover {
+		background: var(--surface-2);
+		color: var(--text);
+	}
+	.menu svg {
+		width: 20px;
+		height: 20px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
 	}
 
 	.brand {
@@ -968,6 +1156,16 @@
 		white-space: nowrap;
 		overflow: hidden;
 	}
+	.site {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		overflow: hidden;
+		color: inherit;
+		text-decoration: none;
+	}
 	.source img {
 		flex: none;
 		width: 16px;
@@ -1028,7 +1226,89 @@
 		overflow: hidden;
 		transition: color 0.12s;
 	}
-	.result a:hover h2 {
+	.bookmark {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 28px;
+		height: 24px;
+		margin-right: -6px;
+		border: 0;
+		border-radius: 7px;
+		background: transparent;
+		color: var(--text-3);
+		cursor: pointer;
+		opacity: 0;
+		transition:
+			opacity 0.15s,
+			color 0.15s,
+			background-color 0.15s;
+	}
+	.result:hover .bookmark,
+	.bookmark:focus-visible,
+	.bookmark.on {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.bookmark {
+			opacity: 1;
+		}
+	}
+	.bookmark:hover {
+		background: var(--surface-2);
+		color: var(--text);
+	}
+	.bookmark svg,
+	.save svg {
+		width: 15px;
+		height: 15px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linejoin: round;
+	}
+	.bookmark.on {
+		color: var(--accent);
+	}
+	.bookmark.on svg,
+	.save.on svg {
+		fill: currentColor;
+	}
+
+	.body {
+		display: flex;
+		align-items: flex-start;
+		gap: 16px;
+	}
+	.text {
+		flex: 1;
+		min-width: 0;
+	}
+	.thumb {
+		flex: none;
+		width: 112px;
+		height: 76px;
+		margin-top: 8px;
+		border-radius: 10px;
+		overflow: hidden;
+		background: var(--surface-2);
+	}
+	.thumb:global([hidden]) {
+		display: none;
+	}
+	.thumb img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		opacity: 0;
+		transition: opacity 0.25s var(--ease);
+	}
+	.thumb:global(.loaded) img {
+		opacity: 1;
+	}
+
+	.result a.title:hover h2 {
 		text-decoration: underline;
 		text-decoration-thickness: 1.5px;
 		text-underline-offset: 3px;
@@ -1216,6 +1496,9 @@
 		stroke-width: 1.8;
 		stroke-linecap: round;
 		stroke-linejoin: round;
+	}
+	.tool.save {
+		margin-left: auto;
 	}
 	.tool.link {
 		border-color: transparent;
@@ -1584,8 +1867,18 @@
 			gap: 10px 8px;
 			padding: 10px 16px 12px;
 		}
-		.active .brand {
+		.active .lead {
 			grid-column: 1;
+		}
+		.active .menu {
+			width: 34px;
+			height: 34px;
+			margin-left: -6px;
+		}
+		.thumb {
+			width: 72px;
+			height: 72px;
+			margin-top: 6px;
 		}
 		.active .search {
 			grid-column: 1 / -1;

@@ -6,7 +6,9 @@ Minimal web search UI (SvelteKit + Bun) on top of the raw [Perplexity Search API
 - Results are streamed as NDJSON and re-ranked as each round arrives: a decision model (`typesafe-ai/jev`) scores relevance per round. An optional reranker (`RERANK_MODEL`, e.g. `voyage/rerank-3`; off by default) breaks ties and stands in if the decision model fails.
 - Query expansion, related searches and scoring go through [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). Without a key, rounds 2–3 fall back to the raw query and results are not scored.
 - Google-style operators: `"phrase"`, `-word`, `a OR b`, `site:`, `-site:`, `when:1h|1d|1w|1m|1y`, `after:YYYY-MM-DD`, `before:YYYY-MM-DD`, `lang:ko`. API-backed ones become Perplexity parameters; the rest are applied as post-filters.
+- Thumbnails: each result page's `og:image` / `twitter:image` is read from its `<head>` (YouTube thumbnails come from the video id) and streamed after its round. The Search API itself returns no images.
 - Search history per anonymous browser id (cookie) in SQLite (`bun:sqlite`).
+- Archive (side menu): save a whole results page or single results. Archived entries are copies, so they survive history deletion and re-searches.
 
 ```sh
 cp .env.example .env   # set PERPLEXITY_API_KEY, optionally AI_GATEWAY_API_KEY
