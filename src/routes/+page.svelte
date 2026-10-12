@@ -527,7 +527,7 @@
 
 		{#if !q}
 			<button
-				class="adv-link"
+				class="advanced-toggle"
 				class:on={advancedOpen || operatorCount > 0}
 				onclick={() => (advancedOpen = !advancedOpen)}
 			>
@@ -1433,7 +1433,8 @@
 	}
 
 	/* ---------- advanced search / tools ---------- */
-	.adv-link {
+	/* Not "adv-…": ad blockers' cosmetic filters hide elements with that class. */
+	.advanced-toggle {
 		margin-top: -12px;
 		padding: 6px 12px;
 		border: 0;
@@ -1446,8 +1447,8 @@
 			color 0.15s,
 			background-color 0.15s;
 	}
-	.adv-link:hover,
-	.adv-link.on {
+	.advanced-toggle:hover,
+	.advanced-toggle.on {
 		color: var(--accent-strong);
 		background: var(--accent-soft);
 	}
