@@ -889,7 +889,7 @@
 		width: 40px;
 		height: 40px;
 		border: 0;
-		border-radius: 12px;
+		border-radius: 8px;
 		background: transparent;
 		color: var(--text-2);
 		cursor: pointer;
@@ -936,9 +936,8 @@
 	.mark {
 		width: 0.95em;
 		height: 0.95em;
-		border-radius: 30%;
-		background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-		box-shadow: 0 4px 14px -4px var(--accent);
+		border-radius: 22%;
+		background: var(--accent);
 	}
 	.active .brand {
 		font-size: 19px;
@@ -956,17 +955,17 @@
 		padding: 0 16px 0 48px;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 999px;
-		box-shadow: var(--shadow);
+		border-radius: var(--radius);
+		box-shadow: var(--shadow-xs);
 		transition:
 			border-color 0.15s var(--ease),
 			box-shadow 0.15s var(--ease);
 	}
 	.search:focus-within {
-		border-color: var(--accent);
+		border-color: var(--ring-border);
 		box-shadow:
-			var(--shadow),
-			0 0 0 4px var(--ring);
+			var(--shadow-xs),
+			0 0 0 3px var(--ring);
 	}
 	.active .search {
 		width: 100%;
@@ -974,7 +973,7 @@
 		box-shadow: none;
 	}
 	.active .search:focus-within {
-		box-shadow: 0 0 0 4px var(--ring);
+		box-shadow: 0 0 0 3px var(--ring);
 	}
 
 	.icon {
@@ -1143,7 +1142,7 @@
 		width: 40px;
 		height: 40px;
 		border: 1px solid transparent;
-		border-radius: 12px;
+		border-radius: 8px;
 		background: transparent;
 		cursor: pointer;
 		color: var(--text-2);
@@ -1261,7 +1260,7 @@
 		flex: none;
 		margin-left: auto;
 		padding: 1px 8px 1px 20px;
-		border-radius: 999px;
+		border-radius: 6px;
 		background: var(--surface-2);
 		color: var(--text-3);
 		font-size: 11.5px;
@@ -1279,11 +1278,14 @@
 		background: conic-gradient(var(--text-3) calc(var(--s) * 360deg), var(--border) 0);
 	}
 	.score.high {
-		background: var(--accent-soft);
-		color: var(--accent-strong);
+		background: var(--accent);
+		color: var(--accent-fg);
 	}
 	.score.high::before {
-		background: conic-gradient(var(--accent) calc(var(--s) * 360deg), var(--border) 0);
+		background: conic-gradient(
+			var(--accent-fg) calc(var(--s) * 360deg),
+			color-mix(in oklch, var(--accent-fg) 30%, transparent) 0
+		);
 	}
 
 	h2 {
@@ -1424,14 +1426,8 @@
 		display: block;
 		height: 12px;
 		border-radius: 6px;
-		background: linear-gradient(
-			90deg,
-			var(--surface-2) 0%,
-			var(--accent-soft) 50%,
-			var(--surface-2) 100%
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.2s linear infinite;
+		background: var(--surface-2);
+		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 	}
 	.sk-host {
 		width: 140px;
@@ -1472,7 +1468,7 @@
 		gap: 6px 10px;
 		padding: 9px 14px;
 		border: 1px solid var(--border);
-		border-radius: 14px;
+		border-radius: var(--radius);
 		background: var(--surface);
 		box-shadow: var(--shadow);
 		font-size: 12.5px;
@@ -1505,7 +1501,7 @@
 		margin-top: -12px;
 		padding: 6px 12px;
 		border: 0;
-		border-radius: 999px;
+		border-radius: 8px;
 		background: transparent;
 		font-size: 13.5px;
 		color: var(--text-3);
@@ -1540,8 +1536,9 @@
 		height: 34px;
 		padding: 0 12px;
 		border: 1px solid var(--border);
-		border-radius: 999px;
+		border-radius: 8px;
 		background: var(--surface);
+		box-shadow: var(--shadow-xs);
 		font-size: 13.5px;
 		color: var(--text-2);
 		cursor: pointer;
@@ -1552,7 +1549,7 @@
 	}
 	.tool:hover:not(:disabled),
 	.tool.on {
-		border-color: var(--accent);
+		background: var(--surface-2);
 		color: var(--accent-strong);
 	}
 	.tool.on {
@@ -1577,6 +1574,7 @@
 	.tool.link {
 		border-color: transparent;
 		background: transparent;
+		box-shadow: none;
 		color: var(--text-3);
 	}
 	.badge {
@@ -1585,9 +1583,9 @@
 		min-width: 18px;
 		height: 18px;
 		padding: 0 5px;
-		border-radius: 999px;
+		border-radius: 6px;
 		background: var(--accent);
-		color: var(--surface);
+		color: var(--accent-fg);
 		font-size: 11px;
 		font-weight: 600;
 	}
@@ -1603,25 +1601,26 @@
 		height: 38px;
 		padding: 0 16px;
 		border: 1px solid var(--border);
-		border-radius: 12px;
+		border-radius: 8px;
 		background: var(--surface);
+		box-shadow: var(--shadow-xs);
 		font-size: 14px;
 		font-weight: 500;
 		color: var(--text-2);
 		cursor: pointer;
 	}
 	.btn:hover:not(:disabled) {
-		border-color: var(--accent);
+		background: var(--surface-2);
 		color: var(--text);
 	}
 	.btn.primary {
 		border-color: var(--accent);
 		background: var(--accent);
-		color: var(--surface);
+		color: var(--accent-fg);
 	}
 	.btn.primary:hover:not(:disabled) {
-		background: var(--accent-strong);
-		color: var(--surface);
+		background: color-mix(in oklch, var(--accent) 90%, transparent);
+		color: var(--accent-fg);
 	}
 	.btn:disabled {
 		opacity: 0.5;
@@ -1655,7 +1654,7 @@
 		list-style: none;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 16px;
+		border-radius: 8px;
 		box-shadow: var(--shadow);
 	}
 	.history li {
@@ -1663,7 +1662,7 @@
 		align-items: center;
 		gap: 12px;
 		padding: 9px 12px;
-		border-radius: 10px;
+		border-radius: 6px;
 		cursor: pointer;
 		font-size: 15px;
 	}
@@ -1760,8 +1759,9 @@
 		gap: 10px;
 		margin: 14px 0 4px;
 		padding: 8px 8px 8px 14px;
-		border-radius: 12px;
-		background: var(--accent-soft);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--surface);
 		color: var(--text-2);
 		font-size: 13.5px;
 		animation: rise 0.3s var(--ease);
@@ -1783,8 +1783,9 @@
 		gap: 6px;
 		padding: 6px 12px;
 		border: 1px solid var(--border);
-		border-radius: 999px;
+		border-radius: 8px;
 		background: var(--surface);
+		box-shadow: var(--shadow-xs);
 		font-size: 13px;
 		font-weight: 500;
 		cursor: pointer;
@@ -1798,7 +1799,7 @@
 		stroke: currentColor;
 	}
 	.cached button:hover {
-		border-color: var(--accent);
+		background: var(--surface-2);
 		color: var(--accent-strong);
 	}
 
@@ -1817,9 +1818,9 @@
 		align-items: center;
 		gap: 6px;
 		max-width: 100%;
-		padding: 3px 10px 3px 3px;
-		border-radius: 999px;
-		background: var(--surface-2);
+		padding: 2px 10px 2px 2px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
 		color: var(--text-2);
 		animation: rise 0.25s var(--ease) both;
 	}
@@ -1829,7 +1830,7 @@
 		flex: none;
 		width: 18px;
 		height: 18px;
-		border-radius: 50%;
+		border-radius: 6px;
 		background: var(--accent-soft);
 		color: var(--accent-strong);
 		font-size: 11px;
@@ -1889,7 +1890,7 @@
 		min-width: 0;
 		padding: 10px 14px;
 		border: 1px solid var(--border);
-		border-radius: 12px;
+		border-radius: 8px;
 		background: var(--surface);
 		font-size: 14.5px;
 		animation: rise 0.3s var(--ease) both;
@@ -1899,7 +1900,7 @@
 			transform 0.15s var(--ease);
 	}
 	.chips a:hover {
-		border-color: var(--accent);
+		background: var(--surface-2);
 		color: var(--accent-strong);
 	}
 	.chips a:active {
@@ -1990,9 +1991,9 @@
 			transform: translateY(-4px);
 		}
 	}
-	@keyframes shimmer {
-		to {
-			background-position: -200% 0;
+	@keyframes pulse {
+		50% {
+			opacity: 0.5;
 		}
 	}
 	@keyframes spin {

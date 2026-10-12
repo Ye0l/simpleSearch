@@ -189,9 +189,8 @@
 	.mark {
 		width: 0.95em;
 		height: 0.95em;
-		border-radius: 30%;
-		background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-		box-shadow: 0 4px 14px -4px var(--accent);
+		border-radius: 22%;
+		background: var(--accent);
 	}
 
 	form {
@@ -232,17 +231,17 @@
 		padding: 0 6px 0 22px;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 999px;
-		box-shadow: var(--shadow);
+		border-radius: var(--radius);
+		box-shadow: var(--shadow-xs);
 		transition:
 			border-color 0.15s var(--ease),
 			box-shadow 0.15s var(--ease);
 	}
 	.field:focus-within {
-		border-color: var(--accent);
+		border-color: var(--ring-border);
 		box-shadow:
-			var(--shadow),
-			0 0 0 4px var(--ring);
+			var(--shadow-xs),
+			0 0 0 3px var(--ring);
 	}
 	input {
 		flex: 1;
@@ -265,14 +264,14 @@
 		width: 44px;
 		height: 44px;
 		border: 0;
-		border-radius: 50%;
+		border-radius: 6px;
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-fg);
 		cursor: pointer;
 		transition: background-color 0.15s;
 	}
 	.next:hover:not(:disabled) {
-		background: var(--accent-strong);
+		background: color-mix(in oklch, var(--accent) 90%, transparent);
 	}
 	.next svg {
 		width: 20px;
@@ -287,8 +286,8 @@
 		width: 18px;
 		height: 18px;
 		border-radius: 50%;
-		border: 2px solid rgb(255 255 255 / 0.35);
-		border-top-color: #fff;
+		border: 2px solid color-mix(in oklch, var(--accent-fg) 35%, transparent);
+		border-top-color: var(--accent-fg);
 		animation: spin 0.7s linear infinite;
 	}
 

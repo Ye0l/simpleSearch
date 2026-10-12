@@ -1,64 +1,75 @@
 :root {
-	--bg: #f7f6fa;
-	--surface: #ffffff;
-	--surface-2: #efedf5;
-	--border: #e3e0ec;
-	--text: #1e1b28;
-	--text-2: #5e596f;
-	--text-3: #8e89a0;
-	--accent: #6f63a0;
-	--accent-strong: #5a4f8a;
-	--accent-soft: #ebe8f5;
-	--ring: rgb(111 99 160 / 0.28);
+	--bg: oklch(1 0 0);
+	--surface: oklch(1 0 0);
+	--surface-2: oklch(0.967 0.004 286);
+	--border: oklch(0.92 0.006 286);
+	--text: oklch(0.141 0.005 285.823);
+	--text-2: oklch(0.442 0.017 285.786);
+	--text-3: oklch(0.552 0.016 285.938);
+	/* shadcn "primary", kept as a muted violet */
+	--accent: oklch(0.52 0.085 290);
+	--accent-strong: oklch(0.45 0.085 290);
+	--accent-soft: oklch(0.945 0.018 290);
+	--accent-fg: oklch(0.985 0 0);
+	--ring: oklch(0.52 0.085 290 / 0.3);
+	--ring-border: oklch(0.65 0.08 290);
 	--rose: #a84d63;
 	--rose-soft: #f6e6ea;
 	--sage: #3f7a5f;
 	--sage-soft: #e3f0e8;
-	--shadow: 0 1px 2px rgb(30 27 40 / 0.04), 0 6px 24px -8px rgb(60 50 100 / 0.14);
-	--radius: 14px;
+	--shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+	--shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+	--overlay: rgb(0 0 0 / 0.5);
+	--radius: 10px;
 	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 	color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme='light']) {
-		--bg: #131119;
-		--surface: #1b1823;
-		--surface-2: #23202d;
-		--border: #2d2939;
-		--text: #e8e5f0;
-		--text-2: #a7a1b8;
-		--text-3: #757088;
-		--accent: #a99dd4;
-		--accent-strong: #c2b8e6;
-		--accent-soft: #2a2540;
-		--ring: rgb(169 157 212 / 0.3);
+		--bg: oklch(0.141 0.005 285.823);
+		--surface: oklch(0.21 0.006 285.885);
+		--surface-2: oklch(0.274 0.006 286.033);
+		--border: oklch(1 0 0 / 0.1);
+		--text: oklch(0.985 0 0);
+		--text-2: oklch(0.82 0.01 286);
+		--text-3: oklch(0.705 0.015 286.067);
+		--accent: oklch(0.72 0.08 290);
+		--accent-strong: oklch(0.8 0.07 290);
+		--accent-soft: oklch(0.28 0.04 290);
+		--accent-fg: oklch(0.2 0.03 290);
+		--ring: oklch(0.72 0.08 290 / 0.35);
+		--ring-border: oklch(0.6 0.08 290);
 		--rose: #e39aac;
 		--rose-soft: #3a2230;
 		--sage: #9fd0b5;
 		--sage-soft: #1f3329;
-		--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 28px -10px rgb(0 0 0 / 0.6);
+		--shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+		--shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
 		color-scheme: dark;
 	}
 }
 
 :root[data-theme='dark'] {
-	--bg: #131119;
-	--surface: #1b1823;
-	--surface-2: #23202d;
-	--border: #2d2939;
-	--text: #e8e5f0;
-	--text-2: #a7a1b8;
-	--text-3: #757088;
-	--accent: #a99dd4;
-	--accent-strong: #c2b8e6;
-	--accent-soft: #2a2540;
-	--ring: rgb(169 157 212 / 0.3);
+	--bg: oklch(0.141 0.005 285.823);
+	--surface: oklch(0.21 0.006 285.885);
+	--surface-2: oklch(0.274 0.006 286.033);
+	--border: oklch(1 0 0 / 0.1);
+	--text: oklch(0.985 0 0);
+	--text-2: oklch(0.82 0.01 286);
+	--text-3: oklch(0.705 0.015 286.067);
+	--accent: oklch(0.72 0.08 290);
+	--accent-strong: oklch(0.8 0.07 290);
+	--accent-soft: oklch(0.28 0.04 290);
+	--accent-fg: oklch(0.2 0.03 290);
+	--ring: oklch(0.72 0.08 290 / 0.35);
+	--ring-border: oklch(0.6 0.08 290);
 	--rose: #e39aac;
 	--rose-soft: #3a2230;
 	--sage: #9fd0b5;
 	--sage-soft: #1f3329;
-	--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 28px -10px rgb(0 0 0 / 0.6);
+	--shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+	--shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
 	color-scheme: dark;
 }
 

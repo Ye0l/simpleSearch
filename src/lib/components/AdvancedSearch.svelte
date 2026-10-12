@@ -208,7 +208,7 @@
 		display: grid;
 		gap: 6px;
 		padding: 12px 14px;
-		border-radius: 12px;
+		border-radius: 8px;
 		background: var(--surface-2);
 	}
 	.applied ul {
@@ -259,8 +259,9 @@
 		height: 32px;
 		padding: 0 12px;
 		border: 1px solid var(--border);
-		border-radius: 999px;
+		border-radius: 8px;
 		background: var(--surface);
+		box-shadow: var(--shadow-xs);
 		font-size: 13.5px;
 		color: var(--text-2);
 		cursor: pointer;
@@ -271,12 +272,11 @@
 	}
 	.chips button:hover,
 	.seg button:hover {
-		border-color: var(--accent);
+		background: var(--surface-2);
 		color: var(--text);
 	}
 	.chips button.on,
 	.seg button.on {
-		border-color: var(--accent);
 		background: var(--accent-soft);
 		color: var(--accent-strong);
 	}
@@ -303,14 +303,15 @@
 		height: 40px;
 		padding: 0 12px;
 		border: 1px solid var(--border);
-		border-radius: 12px;
+		border-radius: 8px;
 		background: var(--bg);
+		box-shadow: var(--shadow-xs);
 		font-size: 15px;
 		outline: 0;
 	}
 	.range input:focus,
 	.site input:focus {
-		border-color: var(--accent);
+		border-color: var(--ring-border);
 		box-shadow: 0 0 0 3px var(--ring);
 	}
 
@@ -325,7 +326,7 @@
 	}
 	.seg button {
 		height: 40px;
-		border-radius: 12px;
+		border-radius: 8px;
 	}
 
 	.hint {

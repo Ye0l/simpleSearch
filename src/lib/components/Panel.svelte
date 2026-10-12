@@ -42,7 +42,7 @@
 		margin: 10px 0 6px;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 18px;
+		border-radius: 12px;
 		box-shadow: var(--shadow);
 		animation: drop 0.2s var(--ease);
 	}
@@ -106,7 +106,7 @@
 			inset: 0;
 			z-index: 40;
 			border: 0;
-			background: rgb(10 8 20 / 0.32);
+			background: var(--overlay);
 			animation: fade 0.2s var(--ease);
 		}
 		.panel {
@@ -119,7 +119,7 @@
 			flex-direction: column;
 			max-height: min(72dvh, 640px);
 			margin: 0;
-			border-radius: 20px 20px 0 0;
+			border-radius: 12px 12px 0 0;
 			border-bottom: 0;
 			animation: sheet 0.28s var(--ease);
 		}

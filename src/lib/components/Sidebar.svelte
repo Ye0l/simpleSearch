@@ -125,7 +125,7 @@
 		inset: 0;
 		z-index: 50;
 		border: 0;
-		background: rgb(10 8 20 / 0.32);
+		background: var(--overlay);
 		animation: fade 0.2s var(--ease);
 	}
 
@@ -187,14 +187,14 @@
 		gap: 4px;
 		margin: 6px 14px 8px;
 		padding: 3px;
-		border-radius: 12px;
+		border-radius: 8px;
 		background: var(--surface-2);
 	}
 	.tabs button {
 		flex: 1;
 		height: 34px;
 		border: 0;
-		border-radius: 9px;
+		border-radius: 6px;
 		background: transparent;
 		font-size: 13.5px;
 		color: var(--text-2);
@@ -204,7 +204,7 @@
 		background: var(--surface);
 		color: var(--text);
 		font-weight: 600;
-		box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+		box-shadow: var(--shadow-xs);
 	}
 	.tabs span {
 		margin-left: 2px;
@@ -225,7 +225,7 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		border-radius: 12px;
+		border-radius: 6px;
 	}
 	li:hover {
 		background: var(--surface-2);
@@ -330,7 +330,7 @@
 		height: 30px;
 		padding: 0 12px;
 		border: 1px solid var(--border);
-		border-radius: 999px;
+		border-radius: 8px;
 		background: transparent;
 		font-size: 12.5px;
 		color: var(--text-2);

@@ -64,14 +64,15 @@
 		min-height: 42px;
 		padding: 5px 8px;
 		border: 1px solid var(--border);
-		border-radius: 12px;
+		border-radius: 8px;
 		background: var(--bg);
+		box-shadow: var(--shadow-xs);
 		transition:
 			border-color 0.15s,
 			box-shadow 0.15s;
 	}
 	.tags:focus-within {
-		border-color: var(--accent);
+		border-color: var(--ring-border);
 		box-shadow: 0 0 0 3px var(--ring);
 	}
 	.tag {
@@ -80,7 +81,7 @@
 		gap: 2px;
 		max-width: 100%;
 		padding: 3px 4px 3px 10px;
-		border-radius: 999px;
+		border-radius: 6px;
 		background: var(--accent-soft);
 		color: var(--accent-strong);
 		font-size: 13.5px;
@@ -95,13 +96,13 @@
 		height: 20px;
 		padding: 0;
 		border: 0;
-		border-radius: 50%;
+		border-radius: 4px;
 		background: transparent;
 		color: inherit;
 		cursor: pointer;
 	}
 	.tag button:hover {
-		background: color-mix(in srgb, var(--accent) 18%, transparent);
+		background: color-mix(in oklch, var(--accent) 18%, transparent);
 	}
 	.tag svg {
 		width: 12px;
