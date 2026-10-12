@@ -1,0 +1,118 @@
+:root {
+	--bg: #f7f6fa;
+	--surface: #ffffff;
+	--surface-2: #efedf5;
+	--border: #e3e0ec;
+	--text: #1e1b28;
+	--text-2: #5e596f;
+	--text-3: #8e89a0;
+	--accent: #6f63a0;
+	--accent-strong: #5a4f8a;
+	--accent-soft: #ebe8f5;
+	--ring: rgb(111 99 160 / 0.28);
+	--rose: #a84d63;
+	--rose-soft: #f6e6ea;
+	--sage: #3f7a5f;
+	--sage-soft: #e3f0e8;
+	--shadow: 0 1px 2px rgb(30 27 40 / 0.04), 0 6px 24px -8px rgb(60 50 100 / 0.14);
+	--radius: 14px;
+	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--bg: #131119;
+		--surface: #1b1823;
+		--surface-2: #23202d;
+		--border: #2d2939;
+		--text: #e8e5f0;
+		--text-2: #a7a1b8;
+		--text-3: #757088;
+		--accent: #a99dd4;
+		--accent-strong: #c2b8e6;
+		--accent-soft: #2a2540;
+		--ring: rgb(169 157 212 / 0.3);
+		--rose: #e39aac;
+		--rose-soft: #3a2230;
+		--sage: #9fd0b5;
+		--sage-soft: #1f3329;
+		--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 28px -10px rgb(0 0 0 / 0.6);
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme='dark'] {
+	--bg: #131119;
+	--surface: #1b1823;
+	--surface-2: #23202d;
+	--border: #2d2939;
+	--text: #e8e5f0;
+	--text-2: #a7a1b8;
+	--text-3: #757088;
+	--accent: #a99dd4;
+	--accent-strong: #c2b8e6;
+	--accent-soft: #2a2540;
+	--ring: rgb(169 157 212 / 0.3);
+	--rose: #e39aac;
+	--rose-soft: #3a2230;
+	--sage: #9fd0b5;
+	--sage-soft: #1f3329;
+	--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 28px -10px rgb(0 0 0 / 0.6);
+	color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family:
+		'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+		'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+	font-size: 16px;
+	line-height: 1.55;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+body {
+	transition:
+		background-color 0.25s var(--ease),
+		color 0.25s var(--ease);
+}
+
+::selection {
+	background: var(--ring);
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+button,
+input {
+	font: inherit;
+	color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+::view-transition-group(*) {
+	animation-duration: 0.32s;
+	animation-timing-function: var(--ease);
+}
