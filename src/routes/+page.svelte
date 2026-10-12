@@ -42,8 +42,6 @@
 	const tokens = $derived(tokenizeQuery(input));
 	const parsedInput = $derived(parseQuery(input));
 	const operatorCount = $derived(countOperators(parsedInput));
-	/** API parameters the typed operators will map to, shown before searching */
-	const pendingApi = $derived(input.trim() !== q ? describeQuery(parsedInput) : []);
 
 	let advancedOpen = $state(false);
 	let filterOpen = $state(false);
@@ -61,6 +59,8 @@
 	let history = $state<HistoryItem[]>([]);
 	let open = $state(false);
 	let active = $state(-1);
+	/** API parameters the typed operators will map to, shown while editing before searching */
+	const pendingApi = $derived(open && input.trim() !== q ? describeQuery(parsedInput) : []);
 
 	const suggestions = $derived.by(() => {
 		const needle = input.trim().toLowerCase();

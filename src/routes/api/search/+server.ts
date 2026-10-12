@@ -3,6 +3,7 @@ import { saveSearch } from '#lib/server/db.ts';
 import { byScore, embed, scoreResults } from '#lib/server/embed.ts';
 import { expand } from '#lib/server/expand.ts';
 import { search, seenDomains, urlKey } from '#lib/server/perplexity.ts';
+import { hostOf } from '#lib/filter.ts';
 import { parseQuery, semanticQuery } from '#lib/query.ts';
 import type { Round, SearchEvent, SearchResult } from '#lib/types.ts';
 import type { RequestHandler } from './$types';
@@ -45,10 +46,11 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 			const rounds: Round[] = [];
 			const seen = new Set<string>();
 			const add = (results: SearchResult[]) => {
+				// Same URL, or the same title on the same site (one article under several paths).
 				const fresh = results.filter((r) => {
-					const key = urlKey(r.url);
-					if (seen.has(key)) return false;
-					seen.add(key);
+					const keys = [urlKey(r.url), `${hostOf(r.url)}|${r.title.trim().toLowerCase()}`];
+					if (keys.some((k) => seen.has(k))) return false;
+					keys.forEach((k) => seen.add(k));
 					return true;
 				});
 				all.push(...fresh);

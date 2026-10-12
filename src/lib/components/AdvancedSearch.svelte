@@ -3,6 +3,7 @@
 	import {
 		LANGUAGES,
 		WHEN_LABELS,
+		describeQuery,
 		parseQuery,
 		stringifyQuery,
 		type ParsedQuery,
@@ -13,6 +14,7 @@
 	let { value = $bindable() }: { value: string } = $props();
 
 	const parsed = $derived(parseQuery(value));
+	const applied = $derived(describeQuery(parsed));
 	let custom = $state(false);
 	const showRange = $derived(custom || !!parsed.after || !!parsed.before);
 
@@ -190,7 +192,41 @@
 	/>
 </div>
 
+{#if applied.length}
+	<div class="applied">
+		<span class="label">검색 시 적용</span>
+		<ul>
+			{#each applied as item}
+				<li class:post={!item.api}><b>{item.label}</b> <code>{item.via}</code></li>
+			{/each}
+		</ul>
+	</div>
+{/if}
+
 <style>
+	.applied {
+		display: grid;
+		gap: 6px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: var(--surface-2);
+	}
+	.applied ul {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		font-size: 13px;
+	}
+	.applied b {
+		font-weight: 600;
+		color: var(--accent-strong);
+		overflow-wrap: anywhere;
+	}
+	.applied .post b {
+		color: var(--text-2);
+	}
 	.field {
 		display: grid;
 		gap: 8px;
