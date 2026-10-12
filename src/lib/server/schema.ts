@@ -48,6 +48,18 @@ export function openDatabase(path: string) {
 	`);
 	db.run('CREATE INDEX IF NOT EXISTS archive_client ON archive (client_id, created_at DESC)');
 
+	// AI search reports, stored as the event log the client replays.
+	db.run(`
+		CREATE TABLE IF NOT EXISTS reports (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			client_id TEXT NOT NULL,
+			topic TEXT NOT NULL,
+			events TEXT NOT NULL,
+			created_at INTEGER NOT NULL
+		)
+	`);
+	db.run('CREATE INDEX IF NOT EXISTS reports_client ON reports (client_id, created_at DESC)');
+
 	// Accounts are created by scripts/create-user.sh; password_hash stays NULL until first login.
 	// Only one session per account: a new login overwrites session_hash.
 	db.run(`

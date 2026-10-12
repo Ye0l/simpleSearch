@@ -10,6 +10,7 @@ Minimal web search UI (SvelteKit + Bun) on top of the raw [Perplexity Search API
 - Accounts only (no sign-up): everything except `/login` requires a session. One session per account; a login on another device signs the previous one out.
 - Each account has a daily search limit (default 100, resets at server-local midnight). One search (all 3 rounds) counts once; cached and archived pages are free.
 - Search history per account in SQLite (`bun:sqlite`).
+- AI search (the **AI** toggle next to the search box): a research model (`RESEARCH_MODEL`, default `deepseek/deepseek-v4.1-flash`) plans 3 queries and a checklist, searches, picks the useful results and checks what is still missing (up to 3 rounds), then writes a Markdown document citing its sources. The whole process streams live: side by side on wide screens, switchable tabs on narrower ones. Requests are pinned to `RESEARCH_PROVIDERS` (default `morph,runware`) via `providerOptions.gateway.only`. Finished reports are saved and listed in the side menu; one AI search counts once against the daily limit.
 - Archive (side menu): save a whole results page or single results. Archived entries are copies, so they survive history deletion and re-searches.
 
 ```sh

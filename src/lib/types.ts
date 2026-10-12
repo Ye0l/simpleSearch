@@ -51,3 +51,44 @@ export interface CachedSearch extends HistoryItem, Expansion {
 export type ArchiveItem =
 	| { id: number; kind: 'search'; query: string; count: number; createdAt: number }
 	| { id: number; kind: 'result'; query: string; result: SearchResult; createdAt: number };
+
+/** A search result the AI search collected, numbered for citations ([id]) */
+export interface Source {
+	id: number;
+	title: string;
+	url: string;
+	snippet: string;
+	date: string | null;
+}
+
+/** NDJSON events streamed by GET /api/research; a saved report is the same list, replayed. */
+export type ResearchEvent =
+	| { type: 'plan'; goal: string; criteria: string[]; queries: string[] }
+	| { type: 'searching'; round: number; queries: string[] }
+	| { type: 'results'; round: number; query: string; sources: Source[] }
+	| { type: 'reviewing'; round: number }
+	| {
+			type: 'review';
+			round: number;
+			picked: { id: number; reason: string }[];
+			notes: string[];
+			/** Indexes into the plan's criteria that the picked sources now cover */
+			covered: number[];
+			enough: boolean;
+			missing: string;
+			next: string[];
+	  }
+	| { type: 'writing' }
+	| { type: 'delta'; text: string }
+	| { type: 'done'; id: number; ms: number }
+	| { type: 'error'; message: string };
+
+export interface ReportItem {
+	id: number;
+	topic: string;
+	createdAt: number;
+}
+
+export interface Report extends ReportItem {
+	events: ResearchEvent[];
+}

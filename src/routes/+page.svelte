@@ -7,6 +7,7 @@
 		ArchiveItem,
 		CachedSearch,
 		HistoryItem,
+		ReportItem,
 		Round,
 		SearchEvent,
 		SearchResult
@@ -16,6 +17,7 @@
 	import Filters from '#lib/components/Filters.svelte';
 	import Sidebar from '#lib/components/Sidebar.svelte';
 	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
+	import Research from '#lib/components/Research.svelte';
 	import { countOperators, describeQuery, parseQuery, tokenizeQuery } from '#lib/query.ts';
 	import { applyFilter, countFilter, emptyFilter, type ResultFilter } from '#lib/filter.ts';
 
@@ -41,6 +43,11 @@
 	const q = $derived(page.url.searchParams.get('q')?.trim() ?? '');
 	const historyId = $derived(Number(page.url.searchParams.get('h')) || null);
 	const archiveParam = $derived(Number(page.url.searchParams.get('a')) || null);
+	/** AI search: `mode=ai` runs one, `r` shows a saved report */
+	const reportParam = $derived(Number(page.url.searchParams.get('r')) || null);
+	const ai = $derived(page.url.searchParams.get('mode') === 'ai' || !!reportParam);
+	/** Search box toggle; follows the URL, the user can flip it before submitting */
+	let aiMode = $derived(ai);
 	const key = $derived(
 		archiveParam ? `a:${archiveParam}` : historyId ? `h:${historyId}` : `q:${q}`
 	);
@@ -73,6 +80,7 @@
 
 	let menuOpen = $state(false);
 	let archive = $state<ArchiveItem[]>([]);
+	let reports = $state<ReportItem[]>([]);
 	/** Saved result URL → archive id */
 	const savedResults = $derived(
 		new Map(archive.flatMap((a) => (a.kind === 'result' ? [[a.result.url, a.id] as const] : [])))
@@ -188,7 +196,7 @@
 		failure = null;
 		view = null;
 		filter = emptyFilter();
-		if (!query) {
+		if (!query || ai) {
 			loading = false;
 			return;
 		}
@@ -240,7 +248,11 @@
 		if (!next) return;
 		inputEl.blur();
 		advancedOpen = false;
-		if (next !== q || historyId || archiveParam) goto(`/?q=${encodeURIComponent(next)}`);
+		if (aiMode) {
+			if (next !== q || !ai) goto(`/?q=${encodeURIComponent(next)}&mode=ai`);
+		} else if (next !== q || historyId || archiveParam || ai) {
+			goto(`/?q=${encodeURIComponent(next)}`);
+		}
 	}
 
 	function submit(e: SubmitEvent) {
@@ -270,8 +282,16 @@
 
 	async function loadArchive() {
 		try {
-			archive = await getJSON<ArchiveItem[]>('/api/archive');
+			[archive, reports] = await Promise.all([
+				getJSON<ArchiveItem[]>('/api/archive'),
+				getJSON<ReportItem[]>('/api/reports')
+			]);
 		} catch {}
+	}
+
+	async function removeReport(id: number) {
+		reports = reports.filter((r) => r.id !== id);
+		await fetch(`/api/reports/${id}`, { method: 'DELETE' });
 	}
 
 	async function addToArchive(body: object) {
@@ -443,11 +463,11 @@
 				onkeydown={onInputKeydown}
 				type="search"
 				name="q"
-				placeholder="무엇이든 검색"
+				placeholder={aiMode ? 'AI에게 조사를 맡길 주제' : '무엇이든 검색'}
 				autocomplete="off"
 				spellcheck="false"
 				autofocus={!q}
-				aria-label="검색어"
+				aria-label={aiMode ? 'AI 검색 주제' : '검색어'}
 				role="combobox"
 				aria-expanded={open && suggestions.length > 0}
 				aria-controls="history"
@@ -459,6 +479,24 @@
 			{:else}
 				<kbd>/</kbd>
 			{/if}
+			<button
+				type="button"
+				class="ai-toggle"
+				class:on={aiMode}
+				aria-pressed={aiMode}
+				title={aiMode ? 'AI 검색 끄기' : 'AI 검색: 검색하고 검토해서 출처와 함께 문서로 정리해요'}
+				onclick={() => {
+					aiMode = !aiMode;
+					inputEl.focus();
+				}}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><path
+						d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"
+					/></svg
+				>
+				AI
+			</button>
 
 			{#if pendingApi.length > 0 || (open && suggestions.length > 0)}
 				<div class="below">
@@ -525,7 +563,9 @@
 			{/if}
 		</form>
 
-		{#if !q}
+		{#if !q && aiMode}
+			<p class="ai-hint">AI가 검색하고, 고르고, 출처와 함께 문서로 정리해요</p>
+		{:else if !q}
 			<button
 				class="advanced-toggle"
 				class:on={advancedOpen || operatorCount > 0}
@@ -562,11 +602,25 @@
 		</Panel>
 	{/snippet}
 
-	{#if !q}
+	{#if !q && !aiMode}
 		<div class="home-panel">{@render advancedPanel()}</div>
 	{/if}
 
-	{#if q}
+	{#if q && ai}
+		<Research
+			topic={q}
+			reportId={reportParam}
+			onquota={(n) => (quotaUsed = n)}
+			onsaved={(id) => {
+				goto(`/?q=${encodeURIComponent(q)}&r=${id}`, {
+					replace: true,
+					reset: false
+				});
+				loadArchive();
+			}}
+			onrerun={() => goto(`/?q=${encodeURIComponent(q)}&mode=ai`)}
+		/>
+	{:else if q}
 		<main>
 			<div class="tools">
 				<button
@@ -825,6 +879,8 @@
 <Sidebar
 	bind:open={menuOpen}
 	items={archive}
+	{reports}
+	onremovereport={removeReport}
 	user={user?.id}
 	onremove={(item) => removeArchived(item.id)}
 	onlogout={logout}
@@ -1433,6 +1489,51 @@
 	}
 
 	/* ---------- advanced search / tools ---------- */
+	/* ---------- AI search toggle ---------- */
+	.ai-toggle {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		height: 30px;
+		margin: 0 -8px 0 8px;
+		padding: 0 10px 0 8px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--surface);
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--text-2);
+		cursor: pointer;
+		transition:
+			background-color 0.15s,
+			color 0.15s,
+			border-color 0.15s;
+	}
+	.ai-toggle:hover {
+		background: var(--surface-2);
+		color: var(--text);
+	}
+	.ai-toggle.on {
+		border-color: var(--accent);
+		background: var(--accent);
+		color: var(--accent-fg);
+	}
+	.ai-toggle svg {
+		width: 15px;
+		height: 15px;
+		fill: currentColor;
+	}
+	.search:has(.ai-toggle.on) {
+		border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
+	}
+	.ai-hint {
+		margin: -12px 0 0;
+		padding: 6px 0;
+		font-size: 13.5px;
+		color: var(--accent-strong);
+	}
+
 	/* Not "adv-…": ad blockers' cosmetic filters hide elements with that class. */
 	.advanced-toggle {
 		margin-top: -12px;

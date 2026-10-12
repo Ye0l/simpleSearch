@@ -5,6 +5,9 @@ import type {
 	CachedSearch,
 	Expansion,
 	HistoryItem,
+	Report,
+	ReportItem,
+	ResearchEvent,
 	Round,
 	SearchResult
 } from '#lib/types.ts';
@@ -200,4 +203,35 @@ export function consumeSearch(id: string, limit: number): number | null {
 		).run(id, today());
 		return used + 1;
 	})();
+}
+
+export function saveReport(clientId: string, topic: string, events: ResearchEvent[]): number {
+	const { lastInsertRowid } = db
+		.query('INSERT INTO reports (client_id, topic, events, created_at) VALUES (?, ?, ?, ?)')
+		.run(clientId, topic, JSON.stringify(events), Date.now());
+	return Number(lastInsertRowid);
+}
+
+export function listReports(clientId: string): ReportItem[] {
+	return db
+		.query<{ id: number; topic: string; created_at: number }, [string]>(
+			'SELECT id, topic, created_at FROM reports WHERE client_id = ? ORDER BY created_at DESC'
+		)
+		.all(clientId)
+		.map((r) => ({ id: r.id, topic: r.topic, createdAt: r.created_at }));
+}
+
+export function getReport(clientId: string, id: number): Report | null {
+	const row = db
+		.query<{ id: number; topic: string; events: string; created_at: number }, [number, string]>(
+			'SELECT id, topic, events, created_at FROM reports WHERE id = ? AND client_id = ?'
+		)
+		.get(id, clientId);
+	return (
+		row && { id: row.id, topic: row.topic, events: JSON.parse(row.events), createdAt: row.created_at }
+	);
+}
+
+export function deleteReport(clientId: string, id: number) {
+	db.query('DELETE FROM reports WHERE id = ? AND client_id = ?').run(id, clientId);
 }

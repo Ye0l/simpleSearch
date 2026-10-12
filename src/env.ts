@@ -50,6 +50,19 @@ export const variables = defineEnvVars({
 			'Optional AI Gateway rerank model (e.g. voyage/rerank-3): tie-breaker, and fallback when the decision model fails. Empty = off',
 		schema: (value) => value || undefined
 	},
+	RESEARCH_MODEL: {
+		description: 'AI Gateway model that plans, reviews and writes AI search reports',
+		schema: (value) => value || 'deepseek/deepseek-v4.1-flash'
+	},
+	RESEARCH_PROVIDERS: {
+		description:
+			'Comma-separated AI Gateway providers the research model may run on (providerOptions.gateway.only). Empty = any',
+		schema: (value) =>
+			(value ?? 'morph,runware')
+				.split(',')
+				.map((p) => p.trim())
+				.filter(Boolean)
+	},
 	DATABASE_PATH: {
 		description: 'SQLite file for search history',
 		schema: (value) => value || 'data/search.db'

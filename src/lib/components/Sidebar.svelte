@@ -1,22 +1,26 @@
 <script lang="ts">
-	import type { ArchiveItem } from '#lib/types.ts';
+	import type { ArchiveItem, ReportItem } from '#lib/types.ts';
 
 	// Slide-in archive menu: saved result pages and single saved results.
 	let {
 		open = $bindable(),
 		items,
+		reports,
 		user,
 		onremove,
+		onremovereport,
 		onlogout
 	}: {
 		open: boolean;
 		items: ArchiveItem[];
+		reports: ReportItem[];
 		user?: string;
 		onremove: (item: ArchiveItem) => void;
+		onremovereport: (id: number) => void;
 		onlogout: () => void;
 	} = $props();
 
-	let tab = $state<'search' | 'result'>('search');
+	let tab = $state<'search' | 'result' | 'report'>('search');
 	const pages = $derived(items.filter((i) => i.kind === 'search'));
 	const results = $derived(items.filter((i) => i.kind === 'result'));
 
@@ -55,6 +59,9 @@
 			<button role="tab" aria-selected={tab === 'result'} onclick={() => (tab = 'result')}>
 				저장한 결과 <span>{results.length}</span>
 			</button>
+			<button role="tab" aria-selected={tab === 'report'} onclick={() => (tab = 'report')}>
+				AI 리포트 <span>{reports.length}</span>
+			</button>
 		</div>
 
 		<ul>
@@ -74,6 +81,27 @@
 					</li>
 				{:else}
 					<li class="empty">결과 화면의 <b>저장</b>을 누르면 검색 결과 전체가 여기에 보관돼요.</li>
+				{/each}
+			{:else if tab === 'report'}
+				{#each reports as item (item.id)}
+					<li>
+						<a
+							href="/?q={encodeURIComponent(item.topic)}&r={item.id}"
+							onclick={() => (open = false)}
+						>
+							<b>{item.topic}</b>
+							<small>AI 검색 · {date(item.createdAt)}</small>
+						</a>
+						<button
+							class="icon-btn"
+							aria-label="'{item.topic}' 삭제"
+							onclick={() => onremovereport(item.id)}
+						>
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" /></svg>
+						</button>
+					</li>
+				{:else}
+					<li class="empty">검색창 옆 <b>AI</b>를 켜고 검색하면 정리된 문서가 여기에 쌓여요.</li>
 				{/each}
 			{:else}
 				{#each results as item (item.id)}
@@ -196,9 +224,10 @@
 		border: 0;
 		border-radius: 6px;
 		background: transparent;
-		font-size: 13.5px;
+		font-size: 13px;
 		color: var(--text-2);
 		cursor: pointer;
+		white-space: nowrap;
 	}
 	.tabs button[aria-selected='true'] {
 		background: var(--surface);
