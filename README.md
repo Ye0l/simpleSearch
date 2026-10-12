@@ -30,4 +30,13 @@ scripts/set-limit.sh alice unlimited  # no limit
 
 On the login page, an account without a password goes straight to setting one.
 
+Docker: every push to `main` builds `ghcr.io/ye0l/simplesearch` (`latest` + `sha-…` tags) via `.github/workflows/docker.yml`.
+
+```sh
+docker compose pull && docker compose up -d       # serves on :5288, data in ./data
+docker compose exec app scripts/create-user.sh alice
+```
+
+The repo is private, so the package is too: run `docker login ghcr.io` (a token with `read:packages`) on the host first. The container runs as uid 1000, so `./data` must be writable by it.
+
 Env vars are declared in `src/env.ts`. The expansion prompt lives in `src/lib/server/prompts.ts`.

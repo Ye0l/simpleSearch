@@ -1,0 +1,15 @@
+services:
+  app:
+    image: ghcr.io/ye0l/simplesearch:latest
+    restart: unless-stopped
+    ports:
+      - '5288:3000'
+    env_file: .env
+    environment:
+      DATABASE_PATH: data/search.db
+      # Behind an https tunnel/proxy, uncomment so cookies are marked secure:
+      # PROTOCOL_HEADER: x-forwarded-proto
+      # HOST_HEADER: x-forwarded-host
+    volumes:
+      # The container runs as uid 1000; the host folder must be writable by it.
+      - ./data:/app/data
