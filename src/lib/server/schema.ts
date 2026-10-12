@@ -5,6 +5,8 @@ import { dirname } from 'node:path';
 
 /** Daily search limit for new accounts */
 export const DEFAULT_DAILY_LIMIT = 100;
+/** Stored daily_limit meaning "no limit" */
+export const UNLIMITED = -1;
 
 /**
  * Opens the database and creates or migrates tables. Free of SvelteKit imports so the

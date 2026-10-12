@@ -25,6 +25,7 @@ Accounts:
 scripts/create-user.sh alice        # new account, 100 searches/day
 scripts/create-user.sh bob 300      # new account, custom limit
 scripts/set-limit.sh alice 50       # change a limit (applies immediately)
+scripts/set-limit.sh alice unlimited  # no limit
 ```
 
 On the login page, an account without a password goes straight to setting one.

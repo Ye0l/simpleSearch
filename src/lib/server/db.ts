@@ -1,5 +1,5 @@
 import { DATABASE_PATH } from '$app/env/private';
-import { openDatabase } from '#lib/server/schema.ts';
+import { UNLIMITED, openDatabase } from '#lib/server/schema.ts';
 import type {
 	ArchiveItem,
 	CachedSearch,
@@ -193,7 +193,7 @@ export function usedToday(id: string): number {
 export function consumeSearch(id: string, limit: number): number | null {
 	return db.transaction(() => {
 		const used = usedToday(id);
-		if (used >= limit) return null;
+		if (limit !== UNLIMITED && used >= limit) return null;
 		db.query(
 			`INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
 			 ON CONFLICT (user_id, day) DO UPDATE SET count = count + 1`

@@ -539,11 +539,13 @@
 		{#if user}
 			<span
 				class="quota"
-				class:low={used >= user.limit * 0.9}
-				title="오늘 남은 검색 {Math.max(0, user.limit - used)}회 · 자정에 초기화"
-				style:--q={user.limit ? Math.min(1, used / user.limit) : 1}
+				class:low={user.limit >= 0 && used >= user.limit * 0.9}
+				title={user.limit < 0
+					? `오늘 검색 ${used}회 · 한도 없음`
+					: `오늘 남은 검색 ${Math.max(0, user.limit - used)}회 · 자정에 초기화`}
+				style:--q={user.limit < 0 ? 0 : user.limit ? Math.min(1, used / user.limit) : 1}
 			>
-				{used}<span>/{user.limit}</span>
+				{used}<span>/{user.limit < 0 ? '∞' : user.limit}</span>
 			</span>
 		{/if}
 		<button class="theme" onclick={toggleTheme} aria-label="테마 전환" title="테마 전환">
