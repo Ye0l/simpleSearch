@@ -5,8 +5,16 @@
 	let {
 		open = $bindable(),
 		items,
-		onremove
-	}: { open: boolean; items: ArchiveItem[]; onremove: (item: ArchiveItem) => void } = $props();
+		user,
+		onremove,
+		onlogout
+	}: {
+		open: boolean;
+		items: ArchiveItem[];
+		user?: string;
+		onremove: (item: ArchiveItem) => void;
+		onlogout: () => void;
+	} = $props();
 
 	let tab = $state<'search' | 'result'>('search');
 	const pages = $derived(items.filter((i) => i.kind === 'search'));
@@ -100,6 +108,14 @@
 				{/each}
 			{/if}
 		</ul>
+
+		{#if user}
+			<footer>
+				<span class="avatar" aria-hidden="true">{user[0]}</span>
+				<b>{user}</b>
+				<button onclick={onlogout}>로그아웃</button>
+			</footer>
+		{/if}
 	</nav>
 {/if}
 
@@ -285,6 +301,44 @@
 		font-size: inherit;
 		font-weight: 600;
 		color: var(--text-2);
+	}
+
+	footer {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 14px 14px 18px;
+		border-top: 1px solid var(--border);
+	}
+	.avatar {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		background: var(--accent-soft);
+		color: var(--accent-strong);
+		font-size: 13px;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+	footer b {
+		flex: 1;
+	}
+	footer button {
+		height: 30px;
+		padding: 0 12px;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: transparent;
+		font-size: 12.5px;
+		color: var(--text-2);
+		cursor: pointer;
+	}
+	footer button:hover {
+		border-color: var(--rose);
+		color: var(--rose);
 	}
 
 	@keyframes slide {

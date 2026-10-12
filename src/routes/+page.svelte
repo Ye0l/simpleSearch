@@ -65,6 +65,11 @@
 	let loading = $state(false);
 	let failure = $state<string | null>(null);
 
+	const user = $derived(page.data.user);
+	/** Today's search count, updated from search responses after the initial page load */
+	let quotaUsed = $state<number | null>(null);
+	const used = $derived(quotaUsed ?? user?.used ?? 0);
+
 	let menuOpen = $state(false);
 	let archive = $state<ArchiveItem[]>([]);
 	/** Saved result URL → archive id */
@@ -100,8 +105,14 @@
 		);
 	}
 
+	/** Signed out (e.g. a login on another device took the session): the page load redirects. */
+	function checkSession(res: Response) {
+		if (res.status === 401) location.reload();
+	}
+
 	async function getJSON<T>(url: string, init?: RequestInit): Promise<T> {
 		const res = await fetch(url, init);
+		checkSession(res);
 		if (!res.ok) {
 			const body = await res.json().catch(() => null);
 			throw new Error(body?.message ?? `HTTP ${res.status}`);
@@ -112,6 +123,9 @@
 	/** Reads the NDJSON stream from /api/search, updating `view` as rounds arrive. */
 	async function streamSearch(query: string, k: string, signal: AbortSignal) {
 		const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal });
+		checkSession(res);
+		const quota = res.headers.get('X-Quota-Used');
+		if (quota) quotaUsed = Number(quota);
 		if (!res.ok || !res.body) {
 			const body = await res.json().catch(() => null);
 			throw new Error(body?.message ?? `HTTP ${res.status}`);
@@ -247,6 +261,11 @@
 	}
 
 	onMount(loadArchive);
+
+	async function logout() {
+		await fetch('/api/auth/logout', { method: 'POST' });
+		location.href = '/login';
+	}
 
 	async function loadArchive() {
 		try {
@@ -516,6 +535,17 @@
 			</button>
 		{/if}
 
+		<div class="corner">
+		{#if user}
+			<span
+				class="quota"
+				class:low={used >= user.limit * 0.9}
+				title="오늘 남은 검색 {Math.max(0, user.limit - used)}회 · 자정에 초기화"
+				style:--q={user.limit ? Math.min(1, used / user.limit) : 1}
+			>
+				{used}<span>/{user.limit}</span>
+			</span>
+		{/if}
 		<button class="theme" onclick={toggleTheme} aria-label="테마 전환" title="테마 전환">
 			<svg class="sun" viewBox="0 0 24 24" aria-hidden="true">
 				<circle cx="12" cy="12" r="4" />
@@ -527,6 +557,7 @@
 				<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
 			</svg>
 		</button>
+		</div>
 	</header>
 
 	{#snippet advancedPanel()}
@@ -802,7 +833,9 @@
 <Sidebar
 	bind:open={menuOpen}
 	items={archive}
+	user={user?.id}
 	onremove={(item) => removeArchived(item.id)}
+	onlogout={logout}
 />
 
 <style>
@@ -1055,11 +1088,54 @@
 		animation: spin 0.7s linear infinite;
 	}
 
-	/* ---------- theme toggle ---------- */
-	.theme {
+	/* ---------- quota + theme toggle ---------- */
+	.corner {
 		position: fixed;
 		top: 16px;
 		right: 16px;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.active .corner {
+		position: static;
+		justify-self: end;
+	}
+	.quota {
+		position: relative;
+		padding: 3px 2px 5px;
+		font-size: 12.5px;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-2);
+	}
+	.quota span {
+		font-weight: 400;
+		color: var(--text-3);
+	}
+	/* Thin usage bar under the count */
+	.quota::after {
+		content: '';
+		position: absolute;
+		left: 2px;
+		right: 2px;
+		bottom: 0;
+		height: 2px;
+		border-radius: 1px;
+		background: linear-gradient(
+			to right,
+			var(--accent) calc(var(--q) * 100%),
+			var(--border) 0
+		);
+	}
+	.quota.low {
+		color: var(--rose);
+	}
+	.quota.low::after {
+		background: linear-gradient(to right, var(--rose) calc(var(--q) * 100%), var(--border) 0);
+	}
+
+	.theme {
 		display: grid;
 		place-items: center;
 		width: 40px;
@@ -1072,10 +1148,6 @@
 		transition:
 			background-color 0.15s,
 			color 0.15s;
-	}
-	.active .theme {
-		position: static;
-		justify-self: end;
 	}
 	.theme:hover {
 		background: var(--surface-2);
@@ -1885,9 +1957,11 @@
 			grid-row: 2;
 			height: 44px;
 		}
-		.active .theme {
+		.active .corner {
 			grid-column: 2;
 			grid-row: 1;
+		}
+		.active .theme {
 			width: 34px;
 			height: 34px;
 		}

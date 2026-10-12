@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { saveSearch } from '#lib/server/db.ts';
+import { consumeSearch, saveSearch } from '#lib/server/db.ts';
 import { expand } from '#lib/server/expand.ts';
 import { search, seenDomains, urlKey } from '#lib/server/perplexity.ts';
 import { byScore, scoreResults } from '#lib/server/score.ts';
@@ -25,6 +25,11 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 	const parsed = parseQuery(q);
 	const semantic = semanticQuery(parsed);
 	if (!semantic) error(400, '검색어를 입력하세요');
+
+	// One search (all rounds) counts once against the daily limit.
+	const user = locals.user!;
+	const used = consumeSearch(user.id, user.dailyLimit);
+	if (used === null) error(429, `오늘 검색 한도(${user.dailyLimit}회)를 다 썼어요`);
 
 	// Phrases stay in the query text (the API boosts them); OR becomes a multi-query.
 	const base = [...parsed.terms, ...parsed.phrases.map((p) => `"${p}"`)].join(' ');
@@ -131,7 +136,8 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 		headers: {
 			'Content-Type': 'application/x-ndjson; charset=utf-8',
 			'Cache-Control': 'no-store',
-			'X-Accel-Buffering': 'no'
+			'X-Accel-Buffering': 'no',
+			'X-Quota-Used': String(used)
 		}
 	});
 };

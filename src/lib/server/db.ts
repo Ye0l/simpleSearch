@@ -1,8 +1,5 @@
-/// <reference types="bun" />
-import { Database } from 'bun:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { DATABASE_PATH } from '$app/env/private';
+import { openDatabase } from '#lib/server/schema.ts';
 import type {
 	ArchiveItem,
 	CachedSearch,
@@ -12,41 +9,7 @@ import type {
 	SearchResult
 } from '#lib/types.ts';
 
-mkdirSync(dirname(DATABASE_PATH), { recursive: true });
-
-const db = new Database(DATABASE_PATH, { create: true });
-db.run('PRAGMA journal_mode = WAL');
-db.run(`
-	CREATE TABLE IF NOT EXISTS searches (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		client_id TEXT NOT NULL,
-		query TEXT NOT NULL,
-		results TEXT NOT NULL,
-		created_at INTEGER NOT NULL
-	)
-`);
-db.run('CREATE INDEX IF NOT EXISTS searches_client ON searches (client_id, created_at DESC)');
-
-const columns = db.query<{ name: string }, []>('PRAGMA table_info(searches)').all();
-if (!columns.some((c) => c.name === 'expansion')) {
-	db.run(`ALTER TABLE searches ADD COLUMN expansion TEXT NOT NULL DEFAULT '{"variants":[],"related":[]}'`);
-}
-if (!columns.some((c) => c.name === 'rounds')) {
-	db.run(`ALTER TABLE searches ADD COLUMN rounds TEXT NOT NULL DEFAULT '[]'`);
-}
-
-// Archive entries are copies, so they survive history deletion and re-searches.
-db.run(`
-	CREATE TABLE IF NOT EXISTS archive (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		client_id TEXT NOT NULL,
-		kind TEXT NOT NULL,
-		query TEXT NOT NULL,
-		data TEXT NOT NULL,
-		created_at INTEGER NOT NULL
-	)
-`);
-db.run('CREATE INDEX IF NOT EXISTS archive_client ON archive (client_id, created_at DESC)');
+const db = openDatabase(DATABASE_PATH);
 
 interface Row {
 	id: number;
@@ -176,4 +139,65 @@ export function getArchivedSearch(clientId: string, id: number): CachedSearch | 
 
 export function deleteArchived(clientId: string, id: number) {
 	db.query('DELETE FROM archive WHERE id = ? AND client_id = ?').run(id, clientId);
+}
+
+export interface Account {
+	id: string;
+	passwordHash: string | null;
+	dailyLimit: number;
+}
+
+export function getAccount(id: string): Account | null {
+	const row = db
+		.query<{ id: string; password_hash: string | null; daily_limit: number }, [string]>(
+			'SELECT id, password_hash, daily_limit FROM users WHERE id = ?'
+		)
+		.get(id);
+	return row && { id: row.id, passwordHash: row.password_hash, dailyLimit: row.daily_limit };
+}
+
+/** Sets the first password. Returns false if one was already set (e.g. a concurrent sign-up). */
+export function setFirstPassword(id: string, hash: string) {
+	return (
+		db.query('UPDATE users SET password_hash = ? WHERE id = ? AND password_hash IS NULL').run(hash, id)
+			.changes === 1
+	);
+}
+
+/** Replaces the account's session, which signs out any other device. */
+export function setSession(id: string, sessionHash: string | null) {
+	db.query('UPDATE users SET session_hash = ? WHERE id = ?').run(sessionHash, id);
+}
+
+export function accountBySession(sessionHash: string): Account | null {
+	const row = db
+		.query<{ id: string }, [string]>('SELECT id FROM users WHERE session_hash = ?')
+		.get(sessionHash);
+	return row && getAccount(row.id);
+}
+
+/** Server-local date, so the limit resets at local midnight. */
+const today = () => new Date().toLocaleDateString('sv-SE');
+
+export function usedToday(id: string): number {
+	return (
+		db
+			.query<{ count: number }, [string, string]>(
+				'SELECT count FROM usage WHERE user_id = ? AND day = ?'
+			)
+			.get(id, today())?.count ?? 0
+	);
+}
+
+/** Counts one search against today's limit. Returns the new count, or null if the limit is reached. */
+export function consumeSearch(id: string, limit: number): number | null {
+	return db.transaction(() => {
+		const used = usedToday(id);
+		if (used >= limit) return null;
+		db.query(
+			`INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
+			 ON CONFLICT (user_id, day) DO UPDATE SET count = count + 1`
+		).run(id, today());
+		return used + 1;
+	})();
 }
