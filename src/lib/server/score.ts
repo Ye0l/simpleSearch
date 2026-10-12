@@ -43,6 +43,7 @@ async function decide(fetch: typeof globalThis.fetch, query: string, results: Se
 
 /** Reranker: scores each document independently, so it is stable across rounds. 0–1. */
 async function rerank(fetch: typeof globalThis.fetch, query: string, results: SearchResult[]) {
+	if (!RERANK_MODEL) return [];
 	const data = await gateway<{ results: { index: number; relevance_score: number }[] }>(
 		fetch,
 		'/v2/rerank',
@@ -54,8 +55,9 @@ async function rerank(fetch: typeof globalThis.fetch, query: string, results: Se
 }
 
 /**
- * Sets `score` (decision model) and `rerank` on each result in place. If the decision model
- * fails, the rerank score stands in for it. Never throws; leaves results unscored on failure.
+ * Sets `score` (decision model) and, with RERANK_MODEL set, `rerank` on each result in place.
+ * If the decision model fails, the rerank score stands in for it. Never throws; leaves results
+ * unscored on failure.
  */
 export async function scoreResults(
 	fetch: typeof globalThis.fetch,

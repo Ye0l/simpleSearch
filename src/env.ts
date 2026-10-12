@@ -46,8 +46,9 @@ export const variables = defineEnvVars({
 		schema: (value) => value || 'typesafe-ai/jev'
 	},
 	RERANK_MODEL: {
-		description: 'AI Gateway rerank model: tie-breaker, and fallback when the decision model fails',
-		schema: (value) => value || 'voyage/rerank-3'
+		description:
+			'Optional AI Gateway rerank model (e.g. voyage/rerank-3): tie-breaker, and fallback when the decision model fails. Empty = off',
+		schema: (value) => value || undefined
 	},
 	DATABASE_PATH: {
 		description: 'SQLite file for search history',
