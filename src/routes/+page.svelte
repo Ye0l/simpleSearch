@@ -315,8 +315,13 @@
 		goto(`/?q=${encodeURIComponent(item.query)}&h=${item.id}`);
 	}
 
+	// The home page autofocuses the box; keep history closed until the user clicks, types or
+	// presses ↓, so the dropdown doesn't cover the advanced-search link on arrival.
+	let autofocusing = !page.url.searchParams.has('q');
+
 	async function onFocus() {
-		open = true;
+		open = !autofocusing;
+		autofocusing = false;
 		active = -1;
 		try {
 			history = await getJSON<HistoryItem[]>('/api/history');
@@ -324,6 +329,7 @@
 	}
 
 	function onInputKeydown(e: KeyboardEvent) {
+		if (!open && e.key === 'ArrowDown') open = true;
 		if (!open || suggestions.length === 0) return;
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
@@ -424,12 +430,16 @@
 				onfocus={onFocus}
 				onblur={() => (open = false)}
 				oninput={() => {
+					open = true;
 					active = -1;
 					syncScroll();
 				}}
 				onscroll={syncScroll}
 				onkeyup={syncScroll}
-				onclick={syncScroll}
+				onclick={() => {
+					open = true;
+					syncScroll();
+				}}
 				onkeydown={onInputKeydown}
 				type="search"
 				name="q"
