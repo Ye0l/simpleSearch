@@ -3,8 +3,10 @@ export interface SearchResult {
 	url: string;
 	snippet: string;
 	date: string | null;
-	/** Cosine similarity between the original query and title + snippet */
+	/** Relevance 0–1 (decision model, or rerank as fallback) */
 	score?: number;
+	/** Reranker relevance 0–1, used to break ties */
+	rerank?: number;
 	/** Search round (1–3) that found this result */
 	round?: number;
 }

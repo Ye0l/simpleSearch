@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
 import { saveSearch } from '#lib/server/db.ts';
-import { byScore, embed, scoreResults } from '#lib/server/embed.ts';
 import { expand } from '#lib/server/expand.ts';
 import { search, seenDomains, urlKey } from '#lib/server/perplexity.ts';
+import { byScore, scoreResults } from '#lib/server/score.ts';
 import { hostOf } from '#lib/filter.ts';
 import { parseQuery, semanticQuery } from '#lib/query.ts';
 import type { Round, SearchEvent, SearchResult } from '#lib/types.ts';
@@ -13,7 +13,7 @@ const ROUNDS = 3;
 /**
  * Streams NDJSON SearchEvents. Round 1 searches the raw query while the LLM expands it
  * in parallel; rounds 2–3 run sequentially on the variants, excluding domains already
- * seen. Duplicate URLs are dropped here. Each round is scored against the query embedding
+ * seen. Duplicate URLs are dropped here. Each round is scored (decision model + reranker)
  * before it is sent; scoring overlaps with the next round's search.
  */
 export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
@@ -62,7 +62,6 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 				outbox = outbox.then(async () => send(await event()));
 			};
 
-			const queryVec = embed(fetch, [semantic]).then((v) => v?.[0] ?? null);
 			const runRound = async (round: number, sent: string | string[], exclude: string[]) => {
 				const results = add(
 					await search(fetch, { query: sent, parsed, excludeDomains: exclude, signal })
@@ -70,7 +69,7 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 				results.forEach((r) => (r.round = round));
 				const query = Array.isArray(sent) ? sent.join(' | ') : sent;
 				rounds.push({ query, count: results.length });
-				const scoring = scoreResults(fetch, queryVec, results);
+				const scoring = scoreResults(fetch, semantic, results);
 				queue(async () => {
 					await scoring;
 					return { type: 'results', round, query, results };

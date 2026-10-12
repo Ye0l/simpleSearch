@@ -41,9 +41,13 @@ export const variables = defineEnvVars({
 		description: 'AI Gateway model id used for query expansion',
 		schema: (value) => value || 'anthropic/claude-haiku-5.5'
 	},
-	EMBEDDING_MODEL: {
-		description: 'AI Gateway embedding model used to score results against the query',
-		schema: (value) => value || 'perplexity/pplx-embed-v1-4b'
+	DECISION_MODEL: {
+		description: 'AI Gateway decision model that scores result relevance per round',
+		schema: (value) => value || 'typesafe-ai/jev'
+	},
+	RERANK_MODEL: {
+		description: 'AI Gateway rerank model: tie-breaker, and fallback when the decision model fails',
+		schema: (value) => value || 'voyage/rerank-3'
 	},
 	DATABASE_PATH: {
 		description: 'SQLite file for search history',

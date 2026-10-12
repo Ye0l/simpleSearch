@@ -113,7 +113,7 @@ export function stringifyQuery(q: ParsedQuery): string {
 		.join(' ');
 }
 
-/** Query without operators — what the LLM and embedding model see. */
+/** Query without operators — what the LLM and scoring models see. */
 export function semanticQuery(q: ParsedQuery): string {
 	return [...q.terms, ...q.phrases, ...q.anyOf].join(' ');
 }

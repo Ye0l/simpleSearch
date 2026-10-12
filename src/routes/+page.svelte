@@ -75,9 +75,13 @@
 	/** Stagger index within the batch a result arrived in */
 	const stagger = new Map<string, number>();
 
-	/** Highest similarity first; unscored results keep arrival order. */
+	/** Highest relevance first, rerank breaks ties; unscored results keep arrival order. */
 	function rank(results: SearchResult[]) {
-		return [...results].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+		return [...results].sort(
+			(a, b) =>
+				(b.score ?? -Infinity) - (a.score ?? -Infinity) ||
+				(b.rerank ?? -Infinity) - (a.rerank ?? -Infinity)
+		);
 	}
 
 	async function getJSON<T>(url: string, init?: RequestInit): Promise<T> {
@@ -610,7 +614,7 @@
 											<span
 												class="score"
 												class:high={r.score >= 0.6}
-												title="검색어와의 임베딩 유사도 (cosine)"
+												title="검색어와의 관련도 (decision 모델 · 동점은 rerank)"
 												style:--s={Math.max(0, Math.min(1, r.score))}
 											>
 												{r.score.toFixed(2)}

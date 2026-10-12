@@ -86,7 +86,7 @@
 {#if hasScores}
 	<div class="field">
 		<span class="label">
-			최소 유사도
+			최소 관련도
 			<output>{filter.minScore > 0 ? filter.minScore.toFixed(2) : '제한 없음'}</output>
 		</span>
 		<input
@@ -95,7 +95,7 @@
 			max={Math.ceil(maxScore * 20) / 20}
 			step="0.01"
 			bind:value={filter.minScore}
-			aria-label="최소 유사도"
+			aria-label="최소 관련도"
 		/>
 	</div>
 {/if}
