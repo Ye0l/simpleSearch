@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
 
 	// One field at a time: id → password, or id → new password → confirm.
 	type Step = 'id' | 'password' | 'create' | 'confirm';
@@ -100,6 +101,8 @@
 	<title>로그인 – simpleSearch</title>
 </svelte:head>
 
+<div class="corner"><ThemeToggle /></div>
+
 <main>
 	<div class="brand">
 		<span class="mark" aria-hidden="true"></span>
@@ -165,6 +168,12 @@
 </main>
 
 <style>
+	.corner {
+		position: fixed;
+		top: 16px;
+		right: 16px;
+	}
+
 	main {
 		display: grid;
 		justify-items: center;
