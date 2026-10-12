@@ -9,14 +9,15 @@
 		topic,
 		reportId,
 		onsaved,
-		onquota,
+		onfinish,
 		onrerun
 	}: {
 		topic: string;
 		/** Saved report to show; null runs a new AI search on `topic` */
 		reportId: number | null;
 		onsaved: (id: number) => void;
-		onquota: (used: number) => void;
+		/** A run ended (done, failed or aborted); its cost has been charged */
+		onfinish: () => void;
 		onrerun: () => void;
 	} = $props();
 
@@ -112,8 +113,6 @@
 	async function run(signal: AbortSignal) {
 		const res = await fetch(`/api/research?q=${encodeURIComponent(topic)}`, { signal });
 		if (res.status === 401) location.reload();
-		const quota = res.headers.get('X-Quota-Used');
-		if (quota) onquota(Number(quota));
 		if (!res.ok || !res.body) {
 			const body = await res.json().catch(() => null);
 			throw new Error(body?.message ?? `HTTP ${res.status}`);
@@ -158,9 +157,11 @@
 		if (id !== null && id === untrack(() => produced)) return;
 		reset();
 		const ctrl = new AbortController();
-		(id === null ? run(ctrl.signal) : load(id, ctrl.signal)).catch((e: Error) => {
-			if (e.name !== 'AbortError') failure = e.message;
-		});
+		(id === null ? run(ctrl.signal).finally(onfinish) : load(id, ctrl.signal)).catch(
+			(e: Error) => {
+				if (e.name !== 'AbortError') failure = e.message;
+			}
+		);
 		return () => ctrl.abort();
 	});
 

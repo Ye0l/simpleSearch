@@ -3,9 +3,14 @@ import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-/** Daily search limit for new accounts */
-export const DEFAULT_DAILY_LIMIT = 100;
-/** Stored daily_limit meaning "no limit" */
+/** Legacy per-day search count; only the column default and the budget migration use it */
+const DEFAULT_DAILY_LIMIT = 100;
+/**
+ * Daily budget for new accounts in micro-USD of estimated API cost (search provider + AI
+ * Gateway). Users only see their usage as a percentage of it. $0.50 ≈ 140 searches.
+ */
+export const DEFAULT_DAILY_BUDGET = 500_000;
+/** Stored daily_budget meaning "no limit" */
 export const UNLIMITED = -1;
 
 /**
@@ -71,6 +76,16 @@ export function openDatabase(path: string) {
 			created_at INTEGER NOT NULL
 		)
 	`);
+	// Count-based limits became cost budgets: 100 searches/day maps to the default budget.
+	const userColumns = db.query<{ name: string }, []>('PRAGMA table_info(users)').all();
+	if (!userColumns.some((c) => c.name === 'daily_budget')) {
+		db.run(`ALTER TABLE users ADD COLUMN daily_budget INTEGER NOT NULL DEFAULT ${DEFAULT_DAILY_BUDGET}`);
+		db.run(
+			`UPDATE users SET daily_budget = CASE WHEN daily_limit = ${UNLIMITED} THEN ${UNLIMITED}
+			 ELSE daily_limit * ${DEFAULT_DAILY_BUDGET / DEFAULT_DAILY_LIMIT} END`
+		);
+	}
+
 	db.run(`
 		CREATE TABLE IF NOT EXISTS usage (
 			user_id TEXT NOT NULL,
@@ -79,5 +94,10 @@ export function openDatabase(path: string) {
 			PRIMARY KEY (user_id, day)
 		)
 	`);
+	// Estimated API cost spent that day, micro-USD
+	const usageColumns = db.query<{ name: string }, []>('PRAGMA table_info(usage)').all();
+	if (!usageColumns.some((c) => c.name === 'cost')) {
+		db.run('ALTER TABLE usage ADD COLUMN cost INTEGER NOT NULL DEFAULT 0');
+	}
 	return db;
 }

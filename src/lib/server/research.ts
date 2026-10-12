@@ -8,6 +8,7 @@ import {
 	WRITE_SYSTEM
 } from '#lib/server/prompts.ts';
 import { parseQuery } from '#lib/query.ts';
+import type { Meter } from '#lib/server/meter.ts';
 import type { ResearchEvent, Source } from '#lib/types.ts';
 
 type Fetch = typeof globalThis.fetch;
@@ -44,7 +45,8 @@ async function chatJSON<T>(
 	name: string,
 	schema: object,
 	messages: Message[],
-	signal: AbortSignal
+	signal: AbortSignal,
+	meter: Meter
 ): Promise<T> {
 	const res = await request(
 		fetch,
@@ -58,15 +60,16 @@ async function chatJSON<T>(
 	);
 	if (!res.ok) throw new Error(`AI 요청 실패 (${res.status})`);
 	const data = await res.json();
+	await meter.chat(RESEARCH_MODEL, data.usage);
 	const content: string = data.choices?.[0]?.message?.content ?? '';
 	return JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, ''));
 }
 
 /** Streams the completion's text deltas (OpenAI-style SSE). */
-async function* chatStream(fetch: Fetch, messages: Message[], signal: AbortSignal) {
+async function* chatStream(fetch: Fetch, messages: Message[], signal: AbortSignal, meter: Meter) {
 	const res = await request(
 		fetch,
-		{ messages, stream: true, max_tokens: 6000 },
+		{ messages, stream: true, stream_options: { include_usage: true }, max_tokens: 6000 },
 		signal,
 		WRITE_TIMEOUT_MS
 	);
@@ -84,7 +87,9 @@ async function* chatStream(fetch: Fetch, messages: Message[], signal: AbortSigna
 			if (!line.startsWith('data:')) continue;
 			const payload = line.slice(5).trim();
 			if (payload === '[DONE]') return;
-			const text = JSON.parse(payload).choices?.[0]?.delta?.content;
+			const chunk = JSON.parse(payload);
+			if (chunk.usage) await meter.chat(RESEARCH_MODEL, chunk.usage);
+			const text = chunk.choices?.[0]?.delta?.content;
 			if (text) yield text as string;
 		}
 	}
@@ -108,7 +113,8 @@ export async function research(
 	fetch: Fetch,
 	topic: string,
 	send: (event: ResearchEvent) => void,
-	signal: AbortSignal
+	signal: AbortSignal,
+	meter: Meter
 ) {
 	if (!AI_GATEWAY_API_KEY) throw new Error('AI_GATEWAY_API_KEY가 설정되지 않았어요');
 
@@ -120,7 +126,8 @@ export async function research(
 			{ role: 'system', content: PLAN_SYSTEM },
 			{ role: 'user', content: topic }
 		],
-		signal
+		signal,
+		meter
 	);
 	const goal = String(plan.goal ?? topic);
 	const criteria = strings(plan.criteria, 5);
@@ -141,7 +148,7 @@ export async function research(
 		const fresh: Source[] = [];
 		const settled = await Promise.allSettled(
 			queries.map(async (query) => {
-				const results = await search(fetch, { query, parsed: parseQuery(query), signal });
+				const results = await search(fetch, { query, parsed: parseQuery(query), signal, meter });
 				const batch: Source[] = [];
 				for (const r of results) {
 					if (batch.length === PER_QUERY) break;
@@ -186,7 +193,8 @@ export async function research(
 						`New search results:\n\n${fresh.map(sourceLine).join('\n\n')}`
 				}
 			],
-			signal
+			signal,
+			meter
 		);
 
 		const newPicks = (Array.isArray(review.picked) ? review.picked : []).filter(
@@ -233,7 +241,8 @@ export async function research(
 					`Notes:\n${notes.join('\n') || '(none)'}\n\nSources:\n\n${cited.map(sourceLine).join('\n\n')}`
 			}
 		],
-		signal
+		signal,
+		meter
 	);
 	for await (const text of stream) send({ type: 'delta', text });
 }

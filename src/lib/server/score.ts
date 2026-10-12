@@ -1,5 +1,6 @@
 import { AI_GATEWAY_API_KEY, DECISION_MODEL, RERANK_MODEL } from '$app/env/private';
 import { RELEVANCE_LEVELS, RELEVANCE_SCALE } from '#lib/server/prompts.ts';
+import type { Meter } from '#lib/server/meter.ts';
 import type { SearchResult } from '#lib/types.ts';
 
 const TIMEOUT_MS = 6000;
@@ -22,11 +23,19 @@ async function gateway<T>(fetch: typeof globalThis.fetch, path: string, body: ob
 }
 
 /** Decision model: judges each result's relevance to the query, 0–1. One batch per round. */
-async function decide(fetch: typeof globalThis.fetch, query: string, results: SearchResult[]) {
+async function decide(
+	fetch: typeof globalThis.fetch,
+	query: string,
+	results: SearchResult[],
+	meter: Meter
+) {
 	const input =
 		`Search query: ${query}\n\n${RELEVANCE_SCALE}\n\nResults to score:\n\n` +
 		results.map((r, i) => `[${i + 1}] ${doc(r)}`).join('\n\n');
-	const data = await gateway<{ answers: { name: string; score: number }[] }>(fetch, '/v1/decisions', {
+	const data = await gateway<{
+		answers: { name: string; score: number }[];
+		usage?: { input_tokens?: number; output_tokens?: number };
+	}>(fetch, '/v1/decisions', {
 		model: DECISION_MODEL,
 		input,
 		questions: results.map((_, i) => ({
@@ -36,19 +45,31 @@ async function decide(fetch: typeof globalThis.fetch, query: string, results: Se
 			levels: RELEVANCE_LEVELS
 		}))
 	});
+	await meter.tokens(DECISION_MODEL, data.usage?.input_tokens ?? 0, data.usage?.output_tokens ?? 0);
 	const max = RELEVANCE_LEVELS.length - 1;
 	const scores = new Map(data.answers.map((a) => [a.name, a.score / max]));
 	return results.map((_, i) => scores.get(`r${i}`));
 }
 
 /** Reranker: scores each document independently, so it is stable across rounds. 0–1. */
-async function rerank(fetch: typeof globalThis.fetch, query: string, results: SearchResult[]) {
+async function rerank(
+	fetch: typeof globalThis.fetch,
+	query: string,
+	results: SearchResult[],
+	meter: Meter
+) {
 	if (!RERANK_MODEL) return [];
-	const data = await gateway<{ results: { index: number; relevance_score: number }[] }>(
+	const data = await gateway<{
+		results: { index: number; relevance_score: number }[];
+		usage?: { total_tokens?: number };
+	}>(
 		fetch,
 		'/v2/rerank',
 		{ model: RERANK_MODEL, query, documents: results.map(doc) }
 	);
+	// Without reported usage, ~4 characters per token.
+	const chars = query.length * results.length + results.map(doc).join('').length;
+	await meter.tokens(RERANK_MODEL, data.usage?.total_tokens ?? Math.ceil(chars / 4));
 	const scores: (number | undefined)[] = [];
 	for (const r of data.results) scores[r.index] = r.relevance_score;
 	return results.map((_, i) => scores[i]);
@@ -62,12 +83,13 @@ async function rerank(fetch: typeof globalThis.fetch, query: string, results: Se
 export async function scoreResults(
 	fetch: typeof globalThis.fetch,
 	query: string,
-	results: SearchResult[]
+	results: SearchResult[],
+	meter: Meter
 ) {
 	if (!AI_GATEWAY_API_KEY || results.length === 0) return;
 	const [decided, reranked] = await Promise.allSettled([
-		decide(fetch, query, results),
-		rerank(fetch, query, results)
+		decide(fetch, query, results, meter),
+		rerank(fetch, query, results, meter)
 	]);
 	if (decided.status === 'rejected') console.error('Decision scoring failed', decided.reason);
 	if (reranked.status === 'rejected') console.error('Rerank failed', reranked.reason);

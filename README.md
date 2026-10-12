@@ -8,24 +8,24 @@ Minimal web search UI (SvelteKit + Bun) on top of the raw [Perplexity Search API
 - Google-style operators: `"phrase"`, `-word`, `a OR b`, `site:`, `-site:`, `when:1h|1d|1w|1m|1y`, `after:YYYY-MM-DD`, `before:YYYY-MM-DD`, `lang:ko`. API-backed ones become Perplexity parameters; the rest are applied as post-filters.
 - Thumbnails: each result page's `og:image` / `twitter:image` is read from its `<head>` (YouTube thumbnails come from the video id) and streamed after its round. The Search API itself returns no images.
 - Accounts only (no sign-up): everything except `/login` requires a session. One session per account; a login on another device signs the previous one out.
-- Each account has a daily search limit (default 100, resets at server-local midnight). One search (all 3 rounds) counts once; cached and archived pages are free.
+- Each account has a daily usage budget in estimated API cost (default $0.50, resets at server-local midnight); users only see the share used, as a percentage. Every search-provider request (priced per `PERPLEXITY_SEARCH_TYPE`) and every AI Gateway call (the gateway's reported `usage.cost`, or tokens × the gateway's model prices for decisions/rerank) is charged when the request ends. Roughly $0.004 per search and $0.006–0.02 per AI search. A request that starts under budget may finish over it; cached and archived pages are free.
 - Search history per account in SQLite (`bun:sqlite`).
-- AI search (the **AI** toggle next to the search box): a research model (`RESEARCH_MODEL`, default `deepseek/deepseek-v4.1-flash`) plans 3 queries and a checklist, searches, picks the useful results and checks what is still missing (up to 3 rounds), then writes a Markdown document citing its sources. The whole process streams live: side by side on wide screens, switchable tabs on narrower ones. Requests are pinned to `RESEARCH_PROVIDERS` (default `morph,runware`) via `providerOptions.gateway.only`. Finished reports are saved and listed in the side menu; one AI search counts once against the daily limit.
+- AI search (the **AI** toggle next to the search box): a research model (`RESEARCH_MODEL`, default `deepseek/deepseek-v4.1-flash`) plans 3 queries and a checklist, searches, picks the useful results and checks what is still missing (up to 3 rounds), then writes a Markdown document citing its sources. The whole process streams live: side by side on wide screens, switchable tabs on narrower ones. Requests are pinned to `RESEARCH_PROVIDERS` (default `morph,runware`) via `providerOptions.gateway.only`. Finished reports are saved and listed in the side menu; its cost counts against the daily budget.
 - Archive (side menu): save a whole results page or single results. Archived entries are copies, so they survive history deletion and re-searches.
 
 ```sh
 cp .env.example .env   # set PERPLEXITY_API_KEY, optionally AI_GATEWAY_API_KEY
 bun install
-scripts/create-user.sh <id> [daily_limit]   # default 100; the password is set on first login
+scripts/create-user.sh <id> [budget]   # default 100%; the password is set on first login
 bun run dev
 ```
 
 Accounts:
 
 ```sh
-scripts/create-user.sh alice        # new account, 100 searches/day
-scripts/create-user.sh bob 300      # new account, custom limit
-scripts/set-limit.sh alice 50       # change a limit (applies immediately)
+scripts/create-user.sh alice          # new account, default budget ($0.50/day)
+scripts/create-user.sh bob 300%       # 3× the default
+scripts/set-limit.sh alice '$1'       # $1/day (applies immediately)
 scripts/set-limit.sh alice unlimited  # no limit
 ```
 

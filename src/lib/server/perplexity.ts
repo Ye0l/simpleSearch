@@ -6,6 +6,7 @@ import {
 	PERPLEXITY_SEARCH_TYPE
 } from '$app/env/private';
 import type { ParsedQuery, When } from '#lib/query.ts';
+import type { Meter } from '#lib/server/meter.ts';
 import type { SearchResult } from '#lib/types.ts';
 
 const SNIPPET_MAX = 320;
@@ -102,11 +103,13 @@ export interface SearchOptions {
 	/** Extra domains to exclude, e.g. ones seen in earlier rounds */
 	excludeDomains?: string[];
 	signal?: AbortSignal;
+	/** Charged once the request succeeds */
+	meter?: Meter;
 }
 
 export async function search(
 	fetch: typeof globalThis.fetch,
-	{ query, parsed, excludeDomains = [], signal }: SearchOptions
+	{ query, parsed, excludeDomains = [], signal, meter }: SearchOptions
 ): Promise<SearchResult[]> {
 	if (!PERPLEXITY_API_KEY) throw new Error('PERPLEXITY_API_KEY is not set');
 
@@ -143,6 +146,7 @@ export async function search(
 		console.error('Perplexity search failed', res.status, await res.text());
 		throw new Error(`Search provider error (${res.status})`);
 	}
+	meter?.search();
 
 	const data: { results: (SearchResult & { last_updated?: string | null })[] } = await res.json();
 

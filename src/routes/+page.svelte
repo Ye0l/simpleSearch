@@ -74,9 +74,9 @@
 	let failure = $state<string | null>(null);
 
 	const user = $derived(page.data.user);
-	/** Today's search count, updated from search responses after the initial page load */
-	let quotaUsed = $state<number | null>(null);
-	const used = $derived(quotaUsed ?? user?.used ?? 0);
+	/** Share of today's budget used (null = no limit), refreshed after each search */
+	let usage = $state<{ percent: number | null } | null>(null);
+	const percent = $derived((usage ?? user?.usage)?.percent ?? null);
 
 	let menuOpen = $state(false);
 	let archive = $state<ArchiveItem[]>([]);
@@ -133,8 +133,6 @@
 	async function streamSearch(query: string, k: string, signal: AbortSignal) {
 		const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal });
 		checkSession(res);
-		const quota = res.headers.get('X-Quota-Used');
-		if (quota) quotaUsed = Number(quota);
 		if (!res.ok || !res.body) {
 			const body = await res.json().catch(() => null);
 			throw new Error(body?.message ?? `HTTP ${res.status}`);
@@ -226,7 +224,7 @@
 						};
 						memo.set(k, $state.snapshot(view));
 					})
-				: streamSearch(query, k, ctrl.signal);
+				: streamSearch(query, k, ctrl.signal).finally(refreshUsage);
 
 		request
 			.catch((e: Error) => {
@@ -278,6 +276,12 @@
 	async function logout() {
 		await fetch('/api/auth/logout', { method: 'POST' });
 		location.href = '/login';
+	}
+
+	async function refreshUsage() {
+		try {
+			usage = await getJSON('/api/usage');
+		} catch {}
 	}
 
 	async function loadArchive() {
@@ -579,13 +583,11 @@
 		{#if user}
 			<span
 				class="quota"
-				class:low={user.limit >= 0 && used >= user.limit * 0.9}
-				title={user.limit < 0
-					? `오늘 검색 ${used}회 · 한도 없음`
-					: `오늘 남은 검색 ${Math.max(0, user.limit - used)}회 · 자정에 초기화`}
-				style:--q={user.limit < 0 ? 0 : user.limit ? Math.min(1, used / user.limit) : 1}
+				class:low={percent !== null && percent >= 90}
+				title={percent === null ? '오늘 사용량 · 한도 없음' : `오늘 사용량 ${percent.toFixed(1)}% · 자정에 초기화`}
+				style:--q={percent === null ? 0 : percent / 100}
 			>
-				{used}<span>/{user.limit < 0 ? '∞' : user.limit}</span>
+				{#if percent === null}∞{:else}{percent > 0 && percent < 1 ? '<1' : Math.floor(percent)}<span>%</span>{/if}
 			</span>
 		{/if}
 		<ThemeToggle />
@@ -610,7 +612,7 @@
 		<Research
 			topic={q}
 			reportId={reportParam}
-			onquota={(n) => (quotaUsed = n)}
+			onfinish={refreshUsage}
 			onsaved={(id) => {
 				goto(`/?q=${encodeURIComponent(q)}&r=${id}`, {
 					replace: true,

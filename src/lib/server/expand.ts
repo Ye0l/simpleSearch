@@ -1,4 +1,5 @@
 import { AI_GATEWAY_API_KEY, AI_MODEL } from '$app/env/private';
+import type { Meter } from '#lib/server/meter.ts';
 import type { Expansion } from '#lib/types.ts';
 import { EXPANSION_SCHEMA, EXPANSION_SYSTEM } from './prompts.ts';
 
@@ -20,7 +21,11 @@ function clean(list: unknown, exclude: string[], limit: number): string[] {
 }
 
 /** Generates query variants + related searches. Never throws: returns empty lists on failure. */
-export async function expand(fetch: typeof globalThis.fetch, query: string): Promise<Expansion> {
+export async function expand(
+	fetch: typeof globalThis.fetch,
+	query: string,
+	meter: Meter
+): Promise<Expansion> {
 	const empty: Expansion = { variants: [], related: [] };
 	if (!AI_GATEWAY_API_KEY) return empty;
 
@@ -51,6 +56,7 @@ export async function expand(fetch: typeof globalThis.fetch, query: string): Pro
 			return empty;
 		}
 		const data = await res.json();
+		await meter.chat(AI_MODEL, data.usage);
 		const content: string = data.choices?.[0]?.message?.content ?? '';
 		const parsed = JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, ''));
 		const variants = clean(parsed.variants, [query], 2);

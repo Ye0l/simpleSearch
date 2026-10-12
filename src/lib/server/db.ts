@@ -147,16 +147,17 @@ export function deleteArchived(clientId: string, id: number) {
 export interface Account {
 	id: string;
 	passwordHash: string | null;
-	dailyLimit: number;
+	/** Micro-USD per day, or UNLIMITED */
+	dailyBudget: number;
 }
 
 export function getAccount(id: string): Account | null {
 	const row = db
-		.query<{ id: string; password_hash: string | null; daily_limit: number }, [string]>(
-			'SELECT id, password_hash, daily_limit FROM users WHERE id = ?'
+		.query<{ id: string; password_hash: string | null; daily_budget: number }, [string]>(
+			'SELECT id, password_hash, daily_budget FROM users WHERE id = ?'
 		)
 		.get(id);
-	return row && { id: row.id, passwordHash: row.password_hash, dailyLimit: row.daily_limit };
+	return row && { id: row.id, passwordHash: row.password_hash, dailyBudget: row.daily_budget };
 }
 
 /** Sets the first password. Returns false if one was already set (e.g. a concurrent sign-up). */
@@ -182,27 +183,37 @@ export function accountBySession(sessionHash: string): Account | null {
 /** Server-local date, so the limit resets at local midnight. */
 const today = () => new Date().toLocaleDateString('sv-SE');
 
-export function usedToday(id: string): number {
+/** Estimated API cost spent today, micro-USD */
+export function spentToday(id: string): number {
 	return (
 		db
-			.query<{ count: number }, [string, string]>(
-				'SELECT count FROM usage WHERE user_id = ? AND day = ?'
+			.query<{ cost: number }, [string, string]>(
+				'SELECT cost FROM usage WHERE user_id = ? AND day = ?'
 			)
-			.get(id, today())?.count ?? 0
+			.get(id, today())?.cost ?? 0
 	);
 }
 
-/** Counts one search against today's limit. Returns the new count, or null if the limit is reached. */
-export function consumeSearch(id: string, limit: number): number | null {
-	return db.transaction(() => {
-		const used = usedToday(id);
-		if (limit !== UNLIMITED && used >= limit) return null;
-		db.query(
-			`INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
-			 ON CONFLICT (user_id, day) DO UPDATE SET count = count + 1`
-		).run(id, today());
-		return used + 1;
-	})();
+/**
+ * Starts a metered request. Returns false once today's budget is used up; a request that
+ * starts under budget may finish over it.
+ */
+export function startSearch(id: string, budget: number): boolean {
+	if (budget !== UNLIMITED && spentToday(id) >= budget) return false;
+	db.query(
+		`INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
+		 ON CONFLICT (user_id, day) DO UPDATE SET count = count + 1`
+	).run(id, today());
+	return true;
+}
+
+/** Adds a finished request's estimated cost (micro-USD) to today's usage. */
+export function addCost(id: string, micros: number) {
+	if (micros <= 0) return;
+	db.query(
+		`INSERT INTO usage (user_id, day, count, cost) VALUES (?, ?, 0, ?)
+		 ON CONFLICT (user_id, day) DO UPDATE SET cost = cost + excluded.cost`
+	).run(id, today(), micros);
 }
 
 export function saveReport(clientId: string, topic: string, events: ResearchEvent[]): number {

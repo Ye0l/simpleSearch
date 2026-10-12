@@ -12,7 +12,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const path = event.url.pathname;
 
 	if (account) {
-		event.locals.user = { id: account.id, dailyLimit: account.dailyLimit };
+		event.locals.user = { id: account.id, dailyBudget: account.dailyBudget };
 		event.locals.clientId = account.id;
 		if (path === '/login') redirect(303, '/');
 	} else if (!isPublic(path)) {

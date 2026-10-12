@@ -6,7 +6,11 @@ declare global {
 		interface Locals {
 			/** Scopes history and archive; the signed-in account id */
 			clientId: string;
-			user?: { id: string; dailyLimit: number };
+			user?: {
+				id: string;
+				/** Estimated API cost allowed per day, micro-USD; -1 = no limit */
+				dailyBudget: number;
+			};
 		}
 		// interface PageData {}
 		// interface PageState {}

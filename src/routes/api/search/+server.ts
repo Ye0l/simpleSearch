@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { consumeSearch, saveSearch } from '#lib/server/db.ts';
+import { addCost, saveSearch, startSearch } from '#lib/server/db.ts';
 import { expand } from '#lib/server/expand.ts';
+import { Meter } from '#lib/server/meter.ts';
 import { search, seenDomains, urlKey } from '#lib/server/perplexity.ts';
 import { byScore, scoreResults } from '#lib/server/score.ts';
 import { thumbnails } from '#lib/server/thumbnail.ts';
@@ -26,10 +27,10 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 	const semantic = semanticQuery(parsed);
 	if (!semantic) error(400, '검색어를 입력하세요');
 
-	// One search (all rounds) counts once against the daily limit.
+	// The estimated cost of every API call below is charged to today's budget when done.
 	const user = locals.user!;
-	const used = consumeSearch(user.id, user.dailyLimit);
-	if (used === null) error(429, `오늘 검색 한도(${user.dailyLimit}회)를 다 썼어요`);
+	if (!startSearch(user.id, user.dailyBudget)) error(429, '오늘 사용 한도를 다 썼어요. 자정에 초기화돼요');
+	const meter = new Meter();
 
 	// Phrases stay in the query text (the API boosts them); OR becomes a multi-query.
 	const base = [...parsed.terms, ...parsed.phrases.map((p) => `"${p}"`)].join(' ');
@@ -72,12 +73,12 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 
 			const runRound = async (round: number, sent: string | string[], exclude: string[]) => {
 				const results = add(
-					await search(fetch, { query: sent, parsed, excludeDomains: exclude, signal })
+					await search(fetch, { query: sent, parsed, excludeDomains: exclude, signal, meter })
 				);
 				results.forEach((r) => (r.round = round));
 				const query = Array.isArray(sent) ? sent.join(' | ') : sent;
 				rounds.push({ query, count: results.length });
-				const scoring = scoreResults(fetch, semantic, results);
+				const scoring = scoreResults(fetch, semantic, results, meter);
 				const images = thumbnails(results, signal);
 				queue(async () => {
 					await scoring;
@@ -94,7 +95,7 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 			};
 
 			try {
-				const expansion = expand(fetch, semantic);
+				const expansion = expand(fetch, semantic, meter);
 
 				await runRound(1, firstQuery, []);
 
@@ -125,6 +126,8 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 			} catch (e) {
 				if (!signal.aborted) send({ type: 'error', message: (e as Error).message });
 			} finally {
+				// Background scoring may still be running after an abort; charge what has landed.
+				addCost(user.id, meter.micros);
 				try {
 					controller.close();
 				} catch {}
@@ -136,8 +139,7 @@ export const GET: RequestHandler = ({ url, fetch, locals, request }) => {
 		headers: {
 			'Content-Type': 'application/x-ndjson; charset=utf-8',
 			'Cache-Control': 'no-store',
-			'X-Accel-Buffering': 'no',
-			'X-Quota-Used': String(used)
+			'X-Accel-Buffering': 'no'
 		}
 	});
 };
